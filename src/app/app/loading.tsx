@@ -1,0 +1,1 @@
+export default function Loading() { return <div className="panel pad stack" role="status" aria-label="Carregando"><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></div>; }

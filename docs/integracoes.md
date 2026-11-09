@@ -1,0 +1,28 @@
+# Integrações e política por fonte
+
+Os adaptadores operam no servidor. As flags começam desativadas e a interface identifica a origem dos dados. Uma chamada contabilizada é uma tentativa reservada, inclusive se o provedor falhar. O aplicativo não exibe credenciais nem registra o corpo das respostas externas.
+
+| Fonte | Habilitação e capacidades | Armazenamento, retenção e exportação |
+| --- | --- | --- |
+| Google Places API (New) | **ENABLE_GOOGLE_PLACES=true**, **GOOGLE_PLACES_API_KEY**. Text Search por região e segmento, com paginação e máscara limitada a IDs. Place Details só por ação explícita em resultado do próprio job. | Guarda apenas o Place ID e metadados operacionais, incluindo cursor enquanto necessário para retomada. Detalhes são exibidos em sessão com atribuição Google Maps e de terceiros quando retornada. Dados da fonte ficam fora da carteira e da exportação. |
+| Brave Search Web Search | **ENABLE_BRAVE_SEARCH=true**, **BRAVE_SEARCH_API_KEY**. Consulta pontual por empresa, cidade e UF. Até cinco URLs e títulos para revisão. | Resultados transitórios, sem persistência ou exportação. A interface identifica Brave Search. |
+| Página oficial | **ENABLE_OFFICIAL_PAGE_READING=true**. Solicitação HTTP(S) pontual a uma URL fornecida pelo usuário que confirmou permissão. | Mostra URL final, status HTTP e título textual quando disponível. Limite de três redirects, 200 KiB e dez segundos. Sem HTML persistido ou exportado automaticamente. |
+| Cadastro manual e CSV | Disponíveis com Supabase, independentemente dos provedores acima. | Dados próprios com fonte e data. CSV de saída limitado aos campos comerciais permitidos do cadastro. Evidências com data de expiração ficam fora de leitura após a expiração. |
+| OpenAI Responses API | Opcional. **ENABLE_ASSISTIVE_AI=true**, **OPENAI_API_KEY** e **OPENAI_ASSISTIVE_MODEL** com suporte a Structured Outputs. Modelos locais continuam disponíveis. | Somente observações confirmadas que o usuário selecionou e autorizou. O aplicativo minimiza os trechos, solicita saída estruturada, não fornece ferramentas e usa **store=false**. Confirme a política de dados do seu plano. O aplicativo não grava a resposta automaticamente. |
+
+Google Places e Brave ficam desativados até a organização verificar se seu contrato permite a finalidade pretendida. A ativação não concede direitos de copiar resultados para o CRM. Em particular, não importe manualmente conteúdo cuja licença proíba armazenamento ou uso comercial. Fontes externas podem recusar uma chamada, limitar a cota ou retornar resultados incompletos. A aplicação não deduz propriedade de domínio nem ausência de site a partir desses resultados.
+
+O formulário de pesquisa aplica o limite de chamadas, a localização textual, o segmento e a opção de ignorar IDs já vistos. Os filtros por nome excluído e por lista de não contato são aplicados quando o detalhe é consultado. Aderência local, franquias, contato anterior, domínio e oportunidade comercial exigem revisão manual. Não há enriquecimento automático em massa, ingestão de conteúdo restrito, cálculo de preços ou teto monetário.
+
+O custo depende da conta e da operação do provedor. Text Search com a máscara de IDs e Place Details com campos adicionais são operações separadas. Configure limites e alertas também na conta do provedor. As reservas no banco limitam a organização a 40 chamadas em 24 horas e seis consultas pontuais por minuto.
+
+## Referências oficiais
+
+- [Google Places Text Search (New)](https://developers.google.com/maps/documentation/places/web-service/text-search)
+- [Google Places Details (New)](https://developers.google.com/maps/documentation/places/web-service/place-details)
+- [Políticas de atribuição e armazenamento do Google Places](https://developers.google.com/maps/documentation/places/web-service/policies)
+- [Google Place IDs](https://developers.google.com/maps/documentation/places/web-service/place-id)
+- [Brave Search Web Search](https://api-dashboard.search.brave.com/app/documentation/web-search/get-started)
+- [Termos do Brave Search API](https://api-dashboard.search.brave.com/documentation/resources/terms-of-service)
+- [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create)
+- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
