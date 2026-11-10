@@ -3,7 +3,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { context } from "./auth";
-import { nameKey, stages, sites, type Lead, type Evidence, type Contact, type Assessment, type Preview } from "./domain";
+import { nameKey, regions, stages, sites, type Lead, type Evidence, type Contact, type Assessment, type Preview } from "./domain";
 import { param, type Search } from "@/components/ui";
 
 export const leadFields = "id,name,sector,city,region,district,address,domain,notes,source_label,source_url,consulted_on,stage,website_status,priority,assignee_id,next_action,follow_up,loss_reason,contract_value,updated_at";
@@ -16,7 +16,7 @@ export function leadFilters(params:Search) {
   const uid=z.uuid().safeParse(get("owner"));
   const date=z.iso.date().safeParse(get("date"));
   return {
-    q:get("q"), city:get("city"), sector:get("sector"), district:get("district"), priority:["alta","media","baixa"].includes(get("priority"))?get("priority"):"",
+    q:get("q"), region:(regions as readonly string[]).includes(get("region"))?get("region"):"", city:get("city"), sector:get("sector"), district:get("district"), priority:["alta","media","baixa"].includes(get("priority"))?get("priority"):"",
     stage:Object.hasOwn(stages,get("stage"))?get("stage"):"", site:Object.hasOwn(sites,get("site"))?get("site"):"",
     owner:uid.success?uid.data:"", date:date.success?date.data:"", pending:get("pending")==="1", confidence:["suficiente","pendente","insuficiente"].includes(get("confidence"))?get("confidence"):"",
     order:["updated","name","consulted"].includes(get("order"))?get("order"):"updated",
@@ -29,6 +29,7 @@ export async function queryLeads(params:Search,limit=pageSize,offset?:number) {
   const search=ilikeText(filters.q);
   let query=db.from("lead_directory").select("*",{count:"exact"}).eq("organization_id",org.id);
   if(search) query=query.or("name_key.ilike."+contains(nameKey(search))+",sector.ilike."+contains(search)+",domain.ilike."+contains(search));
+  if(filters.region) query=query.eq("region",filters.region);
   if(filters.city) query=query.ilike("city",contains(filters.city));
   if(filters.sector) query=query.ilike("sector",contains(filters.sector));
   if(filters.district) query=query.ilike("district",contains(filters.district));
