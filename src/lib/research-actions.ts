@@ -4,7 +4,7 @@ import { context } from "./auth";
 import { loadLead } from "./data";
 import { nameKey, regions, publicUrl } from "./domain";
 import { message,on,optionalText,parse,saveError,text } from "./forms";
-import { braveEnabled,braveSearch,googleEnabled,placeDetails,ProviderError,readerEnabled,searchEnabled } from "./providers";
+import { apifyEnabled,braveEnabled,braveSearch,googleEnabled,placeDetails,ProviderError,readerEnabled,searchEnabled } from "./providers";
 import { inspectOfficial } from "./reader";
 const path="/app/pesquisa";
 const uuid=z.uuid();
@@ -12,7 +12,7 @@ const placeId=z.string().regex(/^[A-Za-z0-9_-]{1,256}$/);
 export type LookupState = { error?:string; notice?:string; items?:{title:string;url?:string;description?:string}[]; source?:string };
 export async function startResearch(data:FormData) {
   const {db,org}=await context();
-  if(!googleEnabled())message(path,"Google Places está desativado ou sem chave. O cadastro manual continua disponível.");
+  if(!googleEnabled()&&!apifyEnabled())message(path,"A busca de empresas está desligada: ligue o Apify ou o Google Places no servidor. O cadastro manual continua disponível.");
   const f=parse(z.object({request_id:uuid,city:text(100),region:z.enum(regions),districts:optionalText(250),segment:text(150),desired:z.coerce.number().int().min(1).max(60),max_queries:z.coerce.number().int().min(1).max(10),skip_seen:on}),data,path);
   if(data.get("authorize")!=="on")message(path,"Confirme o limite de consultas e as regras da fonte.");
   const {data:id,error}=await db.rpc("enqueue_research",{p_org:org.id,p_request:f.request_id,p_city:f.city,p_region:f.region,p_districts:f.districts,p_segment:f.segment,p_desired:f.desired,p_max_queries:f.max_queries,p_skip_seen:f.skip_seen});

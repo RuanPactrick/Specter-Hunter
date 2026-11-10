@@ -5,6 +5,7 @@ import { enrichmentPayload, readSite } from "../src/lib/enrichment";
 import { researchLead } from "../src/lib/research";
 import { apifyAds, apifyProfile, socialLead } from "../src/lib/social";
 import { domain } from "../src/lib/domain";
+import { apifyMaps, placeToLead } from "../src/lib/maps";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
@@ -17,7 +18,31 @@ async function finish(job:Job,state:string,error:string|null=null,delay=0){
   const result=await db.rpc("finish_research",{p_job:job.id,p_lease:job.lease_token,p_state:state,p_error:error,p_delay:delay});
   if(result.error)console.error("Falha ao concluir job; a recuperação por lease continuará.",result.error.code);
 }
+// Apify: uma execução do Google Maps Scraper e as empresas vão direto para a carteira (store_maps_leads → create_lead).
+async function runMaps(job:Job){
+  if(job.scan_finished||job.result_count>=job.desired){await finish(job,"completed");return;}
+  const lease=await db.rpc("reserve_research_request",{p_job:job.id,p_lease:job.lease_token});
+  if(lease.error){await finish(job,lease.error.code==="P2005"?"limit_reached":"pending",lease.error.code==="P2005"?"query_budget":"database",retryDelay(job.attempt,0));return;}
+  if(!lease.data){await finish(job,"cancelled");return;}
+  const beat=setInterval(()=>{void db.rpc("extend_research_lease",{p_job:job.id,p_lease:job.lease_token});},30000);
+  try{
+    const query=[job.segment,job.districts,job.city,job.region].filter(Boolean).join(" ");
+    // folga de 5 para as que já estão na carteira, sem pagar por muito mais que o pedido
+    const places=await apifyMaps(query,Math.min(80,job.desired-job.result_count+5),process.env.APIFY_TOKEN!);
+    const rows=places.flatMap(p=>{const row=placeToLead(p,job);return row?[row]:[];});
+    const saved=await db.rpc("store_maps_leads",{p_job:job.id,p_lease:job.lease_token,p_rows:rows});
+    if(saved.error)throw new ProviderError("database",true);
+    const progress=saved.data?.[0];
+    if(!progress)return;
+    console.log("Pesquisa no Maps: "+places.length+" lugares, "+progress.created+" empresas novas na carteira.");
+    await finish(job,progress.cancelled?"cancelled":"completed");
+  }catch(cause){
+    const error=cause instanceof ProviderError?cause:new ProviderError("unknown");
+    await finish(job,error.retriable?"pending":error.code==="credentials"?"awaiting_configuration":"failed",error.code,retryDelay(job.attempt,error.retryAfter));
+  }finally{clearInterval(beat);}
+}
 async function run(job:Job){
+  if(apifyEnabled()){await runMaps(job);return;}
   if(!googleEnabled()){await finish(job,"awaiting_configuration","provider_disabled");return;}
   const apiKey=process.env.GOOGLE_PLACES_API_KEY!;
   let next=job.page_token;

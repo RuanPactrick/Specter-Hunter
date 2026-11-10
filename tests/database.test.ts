@@ -205,6 +205,29 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     await role("authenticated",actorB);
     await expect(first("select public.request_enrichment_batch($1,1,false)",[orgA])).rejects.toMatchObject({code:"42501"});
   });
+  it("cadastra na carteira as empresas do Maps, sem repetidas e sem as da lista de exclusão",async()=>{
+    await role("authenticated",actorA);
+    const id=await enqueue(orgA,"a0000000-0000-4000-8000-000000000014");
+    await role("service_role");
+    const job=await claim();
+    expect(job.id).toBe(id);
+    await db.query("select public.reserve_research_request($1,$2)",[id,job.lease_token]);
+    expect(await first("select public.extend_research_lease($1,$2) ok",[id,job.lease_token])).toEqual({ok:true});
+    const lead=(name:string,phone?:string)=>({name,sector:"Cafeteria",city:"São Luís",region:"MA",source_label:"Google Maps via Apify",source_url:"https://maps.google.com/?cid=1",consulted_on:"2026-11-10",
+      contacts:phone?[{kind:"phone",value:phone,normalized:phone}]:[]});
+    const rows=[{place_id:"Maps_1",lead:lead("Café Novo do Centro","+559832000001"),observed:"Encontrada no Google Maps: nota 4,5."},
+      {place_id:"Maps_2",lead:lead("Empresa nunca lida"),observed:"Repetida."},{place_id:"Maps_3",lead:lead("Mimos Pet"),observed:"Excluída."},
+      {place_id:"Maps_1",lead:lead("Café Novo do Centro"),observed:"Mesmo lugar."},{place_id:"Maps_4",lead:lead("Padaria Nova"),observed:"Nova."}];
+    expect(await first("select * from public.store_maps_leads($1,$2,$3::jsonb)",[id,job.lease_token,JSON.stringify(rows)])).toEqual({result_count:4,created:2,cancelled:false});
+    await db.query("select public.finish_research($1,$2,'completed',null)",[id,job.lease_token]);
+    await role("authenticated",actorA);
+    expect(await first("select provider,leads_created,result_count,state from public.research_jobs where id=$1",[id])).toEqual({provider:"apify",leads_created:2,result_count:4,state:"completed"});
+    const made=await first<{id:string;source_kind:string;created_by:string}>("select id,source_kind,created_by from public.leads where name='Café Novo do Centro'");
+    expect(made).toMatchObject({source_kind:"maps",created_by:actorA});
+    expect((await db.query("select kind,provider from public.evidence_items where lead_id=$1 order by kind",[made.id])).rows).toEqual([{kind:"Cadastro",provider:"maps"},{kind:"Google Maps",provider:"maps"}]);
+    expect(await first("select kind,confirmed from public.lead_contacts where lead_id=$1",[made.id])).toEqual({kind:"phone",confirmed:false});
+    expect((await db.query("select id from public.leads where name='Mimos Pet'")).rows).toEqual([]);
+  });
   it("isola objetos privados e revoga acesso a novas leituras",async()=>{
     await role("authenticated",actorA);
     const asset=request3,path=[orgA,leadA,asset].join("/");
