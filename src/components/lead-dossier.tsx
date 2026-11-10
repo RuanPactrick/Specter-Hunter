@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Check, ExternalLink, Globe, Mail, MapPin, Megaphone, MessageCircle, Phone, ScanSearch, Sparkles, X } from "lucide-react";
 import { Notice, Tag } from "./ui";
 import { Submit } from "./submit";
@@ -7,7 +8,8 @@ import { reviewEvidence } from "@/lib/lead-actions";
 import { requestEnrichment } from "@/lib/research-actions";
 import { searchEnabled } from "@/lib/providers";
 import { labels, weights, type Suggestion } from "@/lib/enrichment";
-import { contactHref, contacts as contactNames, decodeEntities, formatDate, readingErrors, type Contact, type Evidence, type Lead } from "@/lib/domain";
+import { contactHref, contacts as contactNames, decodeEntities, evidenceExpired, formatDate, readingErrors, type Contact, type Evidence, type Lead } from "@/lib/domain";
+import { leadPath } from "@/lib/data";
 
 export type Reading = { state: "pending" | "running" | "done" | "failed"; step: string | null; error_code: string | null; suggestion: Suggestion | null; finished_at: string | null };
 // cada cartão mostra a evidência mais recente de um destes tipos (gravados pela leitura automática e pelo Maps)
@@ -28,6 +30,7 @@ function Finding({ lead, title, icon, empty, item }: { lead: Lead; title: string
     <header><span className="finding-icon" aria-hidden="true">{icon}</span><h3>{title}</h3>{item && reviewTag(item)}</header>
     {item ? <>
       <p>{decodeEntities(item.observed)}</p>
+      <p className="meta">{item.source_label} · consultado em {formatDate(item.consulted_on)}</p>
       <div className="finding-foot">{item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" className="link-btn"><ExternalLink size={14} aria-hidden="true" />{linkLabel(item.url)}</a>}
         {item.review === "pending" && <form action={reviewEvidence.bind(null, lead.id, item.id)} className="inline">
           <input type="hidden" name="observed" value={item.observed} /><input type="hidden" name="back" value="resumo" />
@@ -42,9 +45,10 @@ const icons: Partial<Record<Contact["kind"], ReactNode>> = { whatsapp: <MessageC
 /** Topo do resumo: o que a leitura achou, em cartões, com os canais prontos para usar e a nota explicada. */
 export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evidence: Evidence[]; channels: Contact[]; reading: Reading | null }) {
   const busy = reading?.state === "pending" || reading?.state === "running";
-  const pick = (kinds: string[]) => kinds.map(k => evidence.find(e => e.kind === k)).find(Boolean);
-  const stopped = evidence.find(e => e.kind === "Pesquisa interrompida");
-  const guess = evidence.find(e => e.kind === "Possível domínio" && e.review === "pending");
+  const pick = (kinds: string[]) => kinds.map(k => evidence.find(e => e.kind === k && !evidenceExpired(e))).find(Boolean);
+  const stopped = evidence.find(e => e.kind === "Pesquisa interrompida" && !evidenceExpired(e));
+  const guess = evidence.find(e => e.kind === "Possível domínio" && e.review === "pending" && !evidenceExpired(e));
+  const expired = [...new Set(evidence.filter(evidenceExpired).map(e => e.kind))];
   const s = reading?.suggestion;
   const usable = lead.stage === "blocked" ? [] : channels.filter(c => ["whatsapp", "phone", "email"].includes(c.kind));
   return <section className="dossier" aria-label="O que encontramos sobre a empresa">
@@ -60,6 +64,7 @@ export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evi
     </div>
     {stopped && <Notice tone="warning">{stopped.observed}</Notice>}
     {guess && <Notice>{guess.observed}</Notice>}
+    {expired.length>0&&<Notice tone="warning">Achados vencidos não entram no resumo nem na abordagem: {expired.slice(0,5).join(", ")}. <Link href={leadPath(lead.id,"evidencias")}>Confira as fontes</Link>.</Notice>}
     <div className="dossier-grid">
       {s && <article className="finding score">
         <header><span className="finding-icon" aria-hidden="true"><Sparkles size={18} /></span><h3>Nota da presença digital</h3></header>

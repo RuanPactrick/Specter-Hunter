@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { contactValue,domain,messageTemplate,nameKey,phone,publicUrl,score,sites,whatsappLink,type Contact } from "../src/lib/domain";
+import { contactValue,domain,evidenceExpired,evidenceUsable,messageTemplate,nameKey,phone,publicUrl,score,sites,whatsappLink,type Contact } from "../src/lib/domain";
 import { csvCell,readCsv,suggestMap,toCsv } from "../src/lib/csv";
 import { fileType } from "../src/lib/files";
 describe("Dados comerciais",()=>{
@@ -26,6 +26,13 @@ describe("Dados comerciais",()=>{
     const result=score([{criterion:"gap",points:23,evidence_id:"e1",rationale:"Confirmado"},{criterion:"fit",points:25,evidence_id:"inexistente",rationale:"Inválido"}],new Set(["e1"]));
     expect(result).toEqual({observed:23,maximum:30,coverage:30,provisional:true});
     expect(sites.not_found).toContain("nas consultas realizadas");
+  });
+  it("não trata evidência vencida ou sem revisão como fato utilizável",()=>{
+    expect(evidenceUsable({review:"confirmed",expires_at:null})).toBe(true);
+    expect(evidenceUsable({review:"corrected",expires_at:null})).toBe(true);
+    expect(evidenceUsable({review:"pending",expires_at:null})).toBe(false);
+    expect(evidenceExpired({expires_at:"2000-01-01"})).toBe(true);
+    expect(evidenceUsable({review:"confirmed",expires_at:"2000-01-01"})).toBe(false);
   });
   it("não sugere prévia inexistente e exige WhatsApp confirmado",()=>{
     const contact:Contact={id:"test",kind:"whatsapp",value:"Número de teste",normalized:"+15550100123",source_label:"Fixture",consulted_on:"2026-01-01",confirmed:true};

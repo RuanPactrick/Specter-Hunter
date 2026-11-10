@@ -5,8 +5,8 @@ import { context } from "@/lib/auth";
 import { leadPath, loadAssessment, loadContacts, loadEvidence } from "@/lib/data";
 import { Dossier, type Reading } from "./lead-dossier";
 import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveScore } from "@/lib/lead-actions";
-import { criteria, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
-export const confirmed = (e:Evidence)=>e.review==="confirmed"||e.review==="corrected";
+import { criteria, evidenceExpired, evidenceUsable, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
+export const confirmed = evidenceUsable;
 export function evidenceOptions(items:Evidence[]) {
   return Object.fromEntries(items.map(e=>[e.id,e.kind+" · "+e.source_label+" · "+formatDate(e.consulted_on)]));
 }
@@ -29,7 +29,7 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
   const verified=evidence.filter(confirmed);
   const index=score(items,new Set(verified.map(e=>e.id)));
   const age=(Date.parse(today())-Date.parse(lead.consulted_on))/86400000;
-  const notes=evidence.filter(e=>e.review==="pending"||e.review==="conflict"||e.review==="inconclusive");
+  const notes=evidence.filter(e=>!evidenceUsable(e));
   return <>{age>org.retention_days&&<Notice tone="warning">A consulta está fora do intervalo de revisão da organização. Revise a fonte antes de reutilizar os dados.</Notice>}
   <Dossier lead={lead} evidence={evidence} channels={channels} reading={reading}/>
   <div className="grid-two"><div className="stack">
@@ -74,7 +74,7 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
 export async function EvidenceTab({lead}:{lead:Lead}) {
   const items=await loadEvidence(lead.id);
   return <div className="grid-two"><Panel title="Evidências digitais" description="Confira o valor observado, a fonte e o método antes de alterar a revisão.">
-  {items.length?items.map(item=><div key={item.id} className="row !block"><details className="disclosure"><summary><span className="inline spread"><span>{item.kind} · {item.source_label}</span><Tag tone={confirmed(item)?"success":item.review==="conflict"?"error":"warning"}>{reviews[item.review]}</Tag></span></summary>
+  {items.length?items.map(item=><div key={item.id} className="row !block"><details id={"evidence-"+item.id} className="disclosure"><summary><span className="inline spread"><span>{item.kind} · {item.source_label}</span><Tag tone={evidenceExpired(item)?"warning":confirmed(item)?"success":item.review==="conflict"?"error":"warning"}>{evidenceExpired(item)?"Expirada · ":""}{reviews[item.review]}</Tag></span></summary>
   <div className="inner stack"><p>{item.observed}</p><Pairs items={[
     ["Data da consulta",formatDate(item.consulted_on)],["Método",item.method],["Origem",item.provider==="csv"?"CSV de dados próprios":"Manual"],
     ["URL",item.url?<SafeLink key="url" url={item.url}/>:"Sem URL"],["Confiança",item.confidence],["Expiração",formatDate(item.expires_at)],
@@ -107,12 +107,12 @@ export async function PresenceTab({lead}:{lead:Lead}) {
   ["Classificação",<SiteTag status={lead.website_status} key="status"/>],["Domínio informado",lead.domain?<code key="domain">{lead.domain}</code>:"A confirmar"],
   ["Data da avaliação",formatDate(latest?.created_at??null)],["Performance","Não avaliado"]
   ]}/><Notice tone="warning">Não localizar um site nas consultas realizadas não comprova sua inexistência. Confirme o vínculo com fonte oficial ou comercial.</Notice></div></Panel>
-  <Panel title="Como chegamos a esta conclusão"><div className="pad stack">{linked?<><strong>{linked.observed}</strong><span className="meta">{linked.source_label} · {formatDate(linked.consulted_on)}</span><p>Método: {latest?.method}</p></>:<p className="muted">{latest?"A evidência original expirou ou está indisponível. Reavalie a conclusão.":"Nenhuma avaliação com evidência registrada."}</p>}</div></Panel>
+  <Panel title="Como chegamos a esta conclusão"><div className="pad stack">{linked?<><strong>{linked.observed}</strong><span className="meta">{linked.source_label} · consultado em {formatDate(linked.consulted_on)}</span><p>Método: {latest?.method}</p>{evidenceExpired(linked)&&<Notice tone="warning">Esta evidência venceu em {formatDate(linked.expires_at)}. Reavalie a conclusão antes de usá-la.</Notice>}</>:<p className="muted">{latest?"A evidência original venceu ou está indisponível. Reavalie a conclusão.":"Nenhuma avaliação com evidência registrada."}</p>}</div></Panel>
   <Panel title="O que ainda falta verificar"><p className="pad">{latest?.pending||"Confirme o domínio oficial e descarte homônimos antes de classificar."}</p></Panel>
   <Panel title="Verificações externas"><div className="pad stack"><p>Abra a busca de fontes quando habilitada. A revisão da evidência continua manual.</p><ButtonLink href={"/app/verificar/"+lead.id}>Verificar fontes</ButtonLink></div></Panel>
   </div><Panel title="Registrar avaliação"><form className="pad stack" action={assessSite.bind(null,lead.id)}>
   <Field label="Classificação"><Select name="status" options={sites} defaultValue={lead.website_status}/></Field>
-  <Field label="Evidência" hint="Para indicar site próprio, confirme a evidência e informe o domínio."><Select name="evidence_id" options={evidenceOptions(items)} empty="Selecione" required/></Field>
+  <Field label="Evidência" hint="A evidência deve estar vigente. Para indicar site próprio, confirme-a e informe o domínio."><Select name="evidence_id" options={evidenceOptions(items.filter(item=>!evidenceExpired(item)))} empty={items.some(item=>!evidenceExpired(item))?"Selecione":"Nenhuma evidência vigente"} required/></Field>
   <Field label="Site ou domínio"><input name="website" inputMode="url" maxLength={2048} defaultValue={latest?.domain??""}/></Field>
   <Field label="Como o vínculo foi verificado"><input name="method" required maxLength={180} placeholder="Ex.: link no canal oficial"/></Field>
   <Field label="Inferência comercial"><textarea name="inference" maxLength={1400}/></Field>

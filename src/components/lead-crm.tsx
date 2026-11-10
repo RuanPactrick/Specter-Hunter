@@ -10,7 +10,7 @@ import { generateAssistance } from "@/lib/assistive-action";
 import { AssistiveEditor } from "./assistive-editor";
 import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
-import { checklist, contactHref, contacts, decodeEntities, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
+import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
 
 const contactOrder=["whatsapp","phone","email","instagram","website","maps"] as const;
@@ -44,7 +44,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   if(events.error||offers.error) throw new Error("Falha ao ler abordagem");
   const verified=evidence.filter(confirmed);
   // o que o robô achou e ainda não foi conferido também ajuda a conversar, marcado como "a conferir"
-  const facts=evidence.filter(e=>e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict");
+  const facts=evidence.filter(e=>!evidenceExpired(e)&&e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict");
   const whats=channels.find(c=>c.kind==="whatsapp"&&c.confirmed)??channels.find(c=>c.kind==="whatsapp");
   const draft=events.data?.find(e=>e.kind==="draft");
   const activeDraft=draft && typeof draft.purpose==="string" && Object.hasOwn(purposes,draft.purpose) ? {purpose:draft.purpose as Purpose,content:String(draft.content)}:undefined;
@@ -57,7 +57,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   <MessageEditor sender={org.message_name} city={lead.city} preview={previewUrl} contact={whats?.confirmed?whats:undefined} draft={activeDraft} action={outreach.bind(null,lead.id)}/></Panel>}
   <Panel title="Interações registradas">{events.data?.length?events.data.map(e=><div className="row" key={e.id}><div className="min-w-0 wrap-break-word"><strong>{{draft:"Rascunho",sent:"Envio confirmado",reply:"Resposta recebida",call:"Ligação realizada"}[String(e.kind)]??"Registro"}</strong><p>{e.content}</p><p className="meta">{e.channel} · {formatDate(e.created_at)}</p></div></div>):<Empty title="Sem interações" description="Os registros aparecem aqui após salvar um rascunho ou confirmar uma interação."/>}</Panel></div>
   <div className="stack"><Panel title="O que usar na conversa" description="Fatos sobre a empresa para personalizar a mensagem. Só afirme o que estiver confirmado."><div className="pad stack">
-  {facts.length?<ul className="fact-list">{facts.slice(0,8).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p></li>)}</ul>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos sobre a empresa.</p>}
+  {facts.length?<ul className="fact-list">{facts.slice(0,8).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos atuais sobre a empresa.</p>}
   <ButtonLink href={leadPath(lead.id)}>Conferir no Resumo</ButtonLink></div></Panel>
   {aiConfig()&&lead.stage!=="blocked"&&verified.length>0&&<Panel title="IA assistiva" description="Opcional. Selecione as observações que podem ser compartilhadas com o provedor."><AssistiveEditor action={generateAssistance.bind(null,lead.id)} options={assistiveModes} evidence={verified.slice(0,12).map(e=>({id:e.id,observed:minimizeEvidence(e.observed)}))}/></Panel>}
   <Panel title="Oferta recomendada">{offers.data?.map(row=><div className="row !block" key={row.id}><details className="disclosure"><summary>{row.kind}</summary><div className="inner">
@@ -73,12 +73,14 @@ export async function ApproachTab({lead}:{lead:Lead}) {
 
 export async function PreviewTab({lead}:{lead:Lead}) {
   const [preview,evidence]=await Promise.all([loadPreview(lead.id),loadEvidence(lead.id)]);
-  const facts=evidence.filter(confirmed);
+  const facts=evidence.filter(evidenceUsable);
+  const pending=evidence.filter(e=>!evidenceExpired(e)&&e.review==="pending"&&e.kind!=="Cadastro");
   const brief=[
     "Briefing de prévia · Specter Hunter","Empresa: "+lead.name,"Segmento informado: "+lead.sector,"Região: "+lead.city+", "+lead.region,"",
     "Endereço: "+(lead.address||"não informado"),"Site atual: "+(lead.domain||"não tem"),"",
-    "Fatos confirmados:",...(facts.length?facts.map(e=>"- "+e.kind+": "+decodeEntities(e.observed)):["- nenhum ainda"]),
-    "","Achados do robô ainda a conferir (não afirmar sem checar):",...evidence.filter(e=>e.review==="pending"&&e.kind!=="Cadastro").map(e=>"- "+e.kind+": "+decodeEntities(e.observed)),
+    "Fatos confirmados e vigentes:",...(facts.length?facts.map(e=>"- "+e.kind+": "+decodeEntities(e.observed)+" ["+e.source_label+" · consultado em "+formatDate(e.consulted_on)+"]"):["- nenhum ainda"]),
+    "Achados vencidos foram omitidos; confira a aba Fontes e conferência antes de usar informações antigas.",
+    "","Achados do robô ainda a conferir (não afirmar sem checar):",...pending.map(e=>"- "+e.kind+": "+decodeEntities(e.observed)+" ["+e.source_label+" · consultado em "+formatDate(e.consulted_on)+"]"),
     "- Confirme conteúdo, canais e autorizações de uso antes de publicar.","- Use apenas materiais autorizados para a finalidade registrada.",
     "- Identifique a prévia e mantenha a indexação desativada durante a revisão."
   ].join("\n");

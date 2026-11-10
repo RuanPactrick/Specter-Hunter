@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { context } from "./auth";
 import { loadEvidence,loadLead } from "./data";
+import { evidenceUsable } from "./domain";
 import { aiConfig,assistiveModes,draftWithOpenAI,minimizeEvidence } from "./assistive";
 export type AssistiveState={error?:string;facts?:string[];suggestions?:{text:string;refs:string[]}[];questions?:string[];draft?:string};
 export async function generateAssistance(id:string,_state:AssistiveState,data:FormData):Promise<AssistiveState> {
@@ -12,7 +13,7 @@ export async function generateAssistance(id:string,_state:AssistiveState,data:Fo
   const mode=z.enum(Object.keys(assistiveModes) as [keyof typeof assistiveModes]).safeParse(data.get("mode"));
   const selected=z.array(z.uuid()).min(1).max(8).safeParse(data.getAll("evidence_id"));
   if(!mode.success||!selected.success||data.get("permission")!=="on")return {error:"Selecione de uma a oito evidências e confirme a permissão de uso."};
-  const verified=records.filter(e=>(e.review==="confirmed"||e.review==="corrected")&&selected.data.includes(e.id));
+  const verified=records.filter(e=>evidenceUsable(e)&&selected.data.includes(e.id));
   if(verified.length!==new Set(selected.data).size)return {error:"Uma evidência deixou de estar disponível ou confirmada."};
   const observations=verified.map(e=>({id:e.id,observed:minimizeEvidence(e.observed)}));
   const reservation=await db.rpc("reserve_live_lookup",{p_org:org.id,p_provider:"openai",p_operation:"assist",p_ref:id});

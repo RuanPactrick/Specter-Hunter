@@ -20,7 +20,7 @@ test("carteira e detalhe respondem no mobile, tablet e desktop com Auth e REST s
   await expect(page.getByText("Encontre empresas, registre evidências e organize a próxima abordagem.")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Da busca à abordagem"})).toBeVisible();
   await expect(page.getByRole("list").getByText(/Registre evidências\./)).toBeVisible();
-  await expect(page.getByRole("link",{name:"Cadastrar empresa",exact:true})).toHaveCount(1);
+  await expect(page.locator(".page-head").getByRole("link",{name:"Cadastrar empresa",exact:true})).toHaveAttribute("href","/app/oportunidades/novo");
   await expect(page.getByRole("link",{name:"Configure a integração",exact:true})).toHaveAttribute("href","/app/integracoes");
   await expect(page.locator(".metrics")).toHaveCount(0);
   await setFixture("leads",true);
@@ -32,7 +32,7 @@ test("carteira e detalhe respondem no mobile, tablet e desktop com Auth e REST s
   await setFixture("evidence",true);
   await page.goto("/app");
   await expect(page.getByText("A página oficial não é atualizada desde 2023.")).toBeVisible();
-  await expect(page.getByText("Fonte: Fixture de teste visual · 09/11/2026")).toBeVisible();
+  await expect(page.getByText(/^Fonte: Fixture de teste visual · \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
   await expect(page.getByRole("link",{name:"Ver evidência",exact:true})).toHaveAttribute("href","/app/oportunidades/f0000000-0000-4000-8000-000000000003?aba=evidencias");
   for(const label of ["Empresas em análise","Empresas qualificadas","Interações registradas","Prévias enviadas","Empresas em proposta ou negociação","Empresas conquistadas"]){
     await expect(page.locator(".metrics")).toContainText(label);
@@ -51,9 +51,17 @@ test("carteira e detalhe respondem no mobile, tablet e desktop com Auth e REST s
     const surface=width<=720?page.locator(".mobile-list"):page.locator(".desktop-leads");
     await surface.getByRole("link",{name:/Empresa fictícia de teste/}).click();
     await expect(page.getByRole("heading",{name:"Empresa fictícia de teste"})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"O que encontramos"})).toBeVisible();
+    await expect(page.getByText(/Leitura automática do site · consultado em/)).toBeVisible();
+    await expect(page.getByText("Informação antiga que não pode ser usada como atual.")).toHaveCount(0);
+    await expect(page.getByText(/Achados vencidos não entram no resumo nem na abordagem: Sinais de marketing/)).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
-    await page.getByRole("navigation",{name:"Seções do lead"}).getByRole("link",{name:"Evidências",exact:true}).click();
+    await page.getByRole("navigation",{name:"Seções do lead"}).getByRole("link",{name:"Fontes e conferência",exact:true}).click();
     await expect(page.getByRole("heading",{name:"Evidências digitais"})).toBeVisible();
+    await expect(page.getByText("Expirada · Confirmada")).toBeVisible();
+    await page.locator("#evidence-f0000000-0000-4000-8000-000000000006 summary").click();
+    await expect(page.getByRole("paragraph").filter({hasText:"Informação antiga que não pode ser usada como atual."})).toBeVisible();
+    await expect(page.locator("#evidence-f0000000-0000-4000-8000-000000000006 .pairs")).toContainText("Expiração");
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
   }
   await page.setViewportSize({width:1280,height:712});

@@ -11,6 +11,9 @@ const jwtPart=value=>Buffer.from(JSON.stringify(value)).toString("base64url");
 const timestamp=Math.floor(Date.now()/1000);
 const body=jwtPart({alg:"HS256",typ:"JWT"})+"."+jwtPart({sub:actor,email,aud:"authenticated",role:"authenticated",exp:timestamp+7200,iat:timestamp});
 const token=body+"."+createHmac("sha256","isolated-browser-layout-fixture").update(body).digest("base64url");
+const date=value=>new Intl.DateTimeFormat("sv-SE",{timeZone:"America/Sao_Paulo"}).format(value);
+const currentDate=date(new Date());
+const expiredDate=date(new Date(Date.now()-172800000));
 const organization={id:org,name:"Organização de teste visual",city:"São Luís",region:"MA",segments:"Serviços",message_name:"Equipe de teste",retention_days:365};
 const lead={id,name:"Empresa fictícia de teste",sector:"Serviços",city:"São Luís",region:"MA",district:"Centro",address:"",domain:"empresa-layout.example",notes:"Fixture isolada de teste visual.",source_label:"Fixture de teste visual",source_url:null,consulted_on:"2026-11-09",stage:"review",website_status:"insufficient",priority:"alta",assignee_id:actor,next_action:"Confirmar evidência",follow_up:null,loss_reason:null,contract_value:null,updated_at:"2026-11-09T13:00:00Z",coverage:0,observed:0,confidence:"insuficiente",has_pending:true,organization_id:org};
 let includeLead=true;
@@ -51,7 +54,17 @@ createServer((request,response)=>{
     const wanted=url.searchParams.get("id");
     if(includeLead&&(!wanted||wanted==="eq."+id)&&(!url.searchParams.get("organization_id")||url.searchParams.get("organization_id")==="eq."+org))rows=[lead];
   }
-  if(table==="evidence_items"&&includeEvidence)rows=[{id:"f0000000-0000-4000-8000-000000000004",kind:"Presença digital",observed:"A página oficial não é atualizada desde 2023.",url:null,provider:"manual",source_label:"Fixture de teste visual",consulted_on:"2026-11-09",method:"Fixture",excerpt:null,confidence:"pendente",review:"pending",review_note:null,expires_at:null,export_allowed:false}];
+  if(table==="evidence_items"&&includeEvidence)rows=[
+    {id:"f0000000-0000-4000-8000-000000000004",kind:"Presença digital",observed:"A página oficial não é atualizada desde 2023.",url:null,provider:"manual",source_label:"Fixture de teste visual",consulted_on:"2026-11-09",method:"Fixture",excerpt:null,confidence:"pendente",review:"pending",review_note:null,expires_at:null,export_allowed:false},
+    {id:"f0000000-0000-4000-8000-000000000005",kind:"Leitura do site",observed:"O site respondeu HTTP 200 e apresenta os serviços da empresa.",url:"https://empresa-layout.example",provider:"site_reader",source_label:"Leitura automática do site",consulted_on:currentDate,method:"Fixture",excerpt:null,confidence:"suficiente",review:"confirmed",review_note:null,expires_at:null,export_allowed:false},
+    {id:"f0000000-0000-4000-8000-000000000006",kind:"Sinais de marketing",observed:"Informação antiga que não pode ser usada como atual.",url:null,provider:"site_reader",source_label:"Leitura automática do site",consulted_on:expiredDate,method:"Fixture",excerpt:null,confidence:"suficiente",review:"confirmed",review_note:null,expires_at:expiredDate,export_allowed:false}
+  ];
+  if(table==="evidence_items"&&url.searchParams.has("review")){
+    const filter=url.searchParams.get("review")??"";
+    if(filter.startsWith("in.")){const values=filter.slice(3).replace(/[()]/g,"").split(",");rows=rows.filter(row=>values.includes(row.review));}
+    else if(filter.startsWith("eq."))rows=rows.filter(row=>row.review===filter.slice(3));
+    const limit=Number(url.searchParams.get("limit"));if(Number.isSafeInteger(limit)&&limit>0)rows=rows.slice(0,limit);
+  }
   // FIXTURE_READING=1: fila de leitura em andamento para ver o painel ao vivo
   if(process.env.FIXTURE_READING==="1"){
     const ago=m=>new Date(Date.now()-m*60000).toISOString();

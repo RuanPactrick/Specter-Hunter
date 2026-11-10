@@ -42,6 +42,9 @@ export type Evidence = {
   method: string; excerpt: string | null; confidence: "suficiente" | "pendente" | "insuficiente"; review: Review; review_note: string | null;
   expires_at: string | null; export_allowed: boolean;
 };
+export const evidenceExpired = (evidence: Pick<Evidence,"expires_at">) => Boolean(evidence.expires_at && Date.parse(evidence.expires_at) <= Date.now());
+export const evidenceUsable = (evidence: Pick<Evidence,"review"|"expires_at">) =>
+  (evidence.review === "confirmed" || evidence.review === "corrected") && !evidenceExpired(evidence);
 export type Contact = { id: string; kind: ContactKind; value: string; normalized: string; source_label: string; consulted_on: string; confirmed: boolean };
 export type Assessment = { criterion: Criterion; points: number; rationale: string; evidence_id: string };
 export type Preview = { id: string; url: string; repository: string | null; status: keyof typeof previewStates; sent_on: string | null; feedback: string; note: string; checklist: string[]; created_at: string };
