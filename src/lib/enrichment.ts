@@ -115,7 +115,7 @@ export function explainMarketing(m: Marketing, year = new Date().getFullYear()) 
 }
 
 /** Sinais achados fora do site (pesquisa na web, Receita), somados à nota. */
-export type Extra = { instagram?: boolean; cnpj?: boolean };
+export type Extra = { instagram?: boolean; cnpj?: boolean; ads?: boolean };
 export function suggest(site: SiteRead, extra: Extra = {}): Suggestion {
   const f = site.ok ? site.found : null;
   const signals: Record<keyof typeof weights, boolean> = {
@@ -128,7 +128,9 @@ export function suggest(site: SiteRead, extra: Extra = {}): Suggestion {
   const got = keys.filter(k => signals[k]).map(k => labels[k] + " +" + weights[k]);
   const missing = keys.filter(k => !signals[k]).map(k => labels[k] + " (" + weights[k] + ")");
   const rationale = points + " de " + maximum + " pontos observáveis no site." + (got.length ? " Somou: " + got.join(", ") + "." : "") + (missing.length ? " Faltou: " + missing.join(", ") + "." : "");
-  return { points, maximum, signals, opportunity: site.ok ? opportunity(site.marketing) : null, rationale };
+  // anúncio ativo na Meta vale mais que o pixel: alguém já paga pelo tráfego agora
+  const level = site.ok ? (extra.ads ? "baixa" : opportunity(site.marketing)) : null;
+  return { points, maximum, signals, opportunity: level, rationale: rationale + (extra.ads ? " Tem anúncio ativo na Meta." : "") };
 }
 
 /** O que o worker grava: evidências pendentes, contatos não confirmados e a nota sugerida. */

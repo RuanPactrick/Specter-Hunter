@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { apifyEnabled, apifyGoogle, braveWeb, googleEnabled, ProviderError, readerEnabled, retryDelay, searchEnabled, searchKey, searchPlaces, type WebResult } from "../src/lib/providers";
 import { enrichmentPayload, readSite } from "../src/lib/enrichment";
 import { researchLead } from "../src/lib/research";
+import { apifyAds, apifyProfile, socialLead } from "../src/lib/social";
+import { domain } from "../src/lib/domain";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
@@ -80,8 +82,26 @@ async function enrich(item:Enrichment){
     };
     const search=async(q:string)=>{await run([q]);return cache.get(searchKey(q))??[];};
     const research=searchEnabled()?await researchLead({name:item.name,city:item.city,region:item.region,phones:item.phones??[]},site,{search,prefetch:provider==="apify"?run:undefined}):null;
-    result=enrichmentPayload(research?.site??site??{ok:false,error:"sem domínio informado e nenhum site confirmado na pesquisa"},research?.extra);
-    if(research){result.evidence.push(...research.evidence);result.contacts.push(...research.contacts);}
+    // Instagram e anúncios da Meta, só pelo Apify. Cada execução do ator é reservada como uma busca.
+    const current=research?.site??site;
+    const siteInsta=current?.ok?current.found.instagram:null;
+    const searchInsta=research?.contacts.find(c=>c.kind==="instagram");
+    let social:Awaited<ReturnType<typeof socialLead>>|null=null;
+    if(apifyEnabled()){
+      const token=process.env.APIFY_TOKEN!;
+      const guarded=async<T>(call:()=>Promise<T>):Promise<T|undefined>=>{
+        if(stopped||!await reserve(1))return undefined;
+        try{return await call();}catch(cause){if(!(cause instanceof ProviderError))throw cause;stopped="provider";return undefined;}
+      };
+      social=await socialLead({name:item.name,phones:item.phones??[]},siteInsta??(searchInsta?"https://www.instagram.com/"+searchInsta.normalized:null),!siteInsta,
+        current?.ok?domain(current.url):item.domain,{profile:u=>guarded(()=>apifyProfile(u,token)),ads:n=>guarded(()=>apifyAds(n,token))});
+    }
+    const contacts=social?.dropped?(research?.contacts??[]).filter(c=>c.kind!=="instagram"):research?.contacts??[];
+    result=enrichmentPayload(current??{ok:false,error:"sem domínio informado e nenhum site confirmado na pesquisa"},
+      {...research?.extra,instagram:Boolean(siteInsta)||(Boolean(research?.extra.instagram)&&!social?.dropped),ads:Boolean(social?.adsActive)});
+    if(research)result.evidence.push(...research.evidence);
+    if(social)result.evidence.push(...social.evidence);
+    result.contacts.push(...contacts);
     const why={quota:"A cota diária de pesquisas da leitura automática acabou.",provider:"O motor de pesquisa ("+provider+") recusou ou não respondeu; confira a chave e o crédito."} as const;
     if(stopped)result.evidence.push({kind:"Pesquisa interrompida",observed:why[stopped as keyof typeof why]+" O que faltou pode ser pedido de novo depois.",url:null,excerpt:null});
   }catch{error="reader_failed";}

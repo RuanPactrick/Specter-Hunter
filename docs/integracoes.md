@@ -28,3 +28,5 @@ O custo depende da conta e da operação do provedor. Text Search com a máscara
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 O Apify roda o ator **apify~google-search-scraper**, que coleta a página de resultados do Google. O plano gratuito do Apify tem crédito mensal limitado. Raspar resultados do Google pode contrariar os termos do Google: avalie antes de usar em produção.
+
+Com o Apify ligado, a leitura também roda dois atores por lead, cada um reservado como uma busca na cota da leitura. **apify~instagram-profile-scraper** lê o perfil do @ (seguidores, posts, dias sem postar e engajamento). Um @ achado na pesquisa só fica se o perfil mostrar a marca, o site ou o telefone do lead. **apify~facebook-ads-scraper** procura anúncios ativos na Biblioteca de Anúncios da Meta pelo nome da empresa, até 5, e conta só os da página com a marca ou que levam ao site ou ao @ dela. Anúncio ativo baixa a oportunidade sugerida para baixa. Se a cota ou o Apify falham, nada é afirmado sobre o que não foi consultado.
