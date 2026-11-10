@@ -13,6 +13,8 @@ const body=jwtPart({alg:"HS256",typ:"JWT"})+"."+jwtPart({sub:actor,email,aud:"au
 const token=body+"."+createHmac("sha256","isolated-browser-layout-fixture").update(body).digest("base64url");
 const organization={id:org,name:"Organização de teste visual",city:"São Luís",region:"MA",segments:"Serviços",message_name:"Equipe de teste",retention_days:365};
 const lead={id,name:"Empresa fictícia de teste",sector:"Serviços",city:"São Luís",region:"MA",district:"Centro",address:"",domain:"empresa-layout.example",notes:"Fixture isolada de teste visual.",source_label:"Fixture de teste visual",source_url:null,consulted_on:"2026-11-09",stage:"review",website_status:"insufficient",priority:"alta",assignee_id:actor,next_action:"Confirmar evidência",follow_up:null,loss_reason:null,contract_value:null,updated_at:"2026-11-09T13:00:00Z",coverage:0,observed:0,confidence:"insuficiente",has_pending:true,organization_id:org};
+let includeLead=true;
+let includeEvidence=true;
 const write=(response,status,data,extra={})=>{
   response.writeHead(status,{"Content-Type":"application/json","Cache-Control":"no-store",...extra});
   response.end(data===null?undefined:JSON.stringify(data));
@@ -20,6 +22,11 @@ const write=(response,status,data,extra={})=>{
 createServer((request,response)=>{
   const url=new URL(request.url??"/","http://127.0.0.1:3108");
   if(url.pathname==="/health")return write(response,200,{fixture:true});
+  if((url.pathname==="/__fixture/leads"||url.pathname==="/__fixture/evidence")&&request.method==="POST"){
+    const present=url.searchParams.get("present")!=="false";
+    if(url.pathname.endsWith("/leads"))includeLead=present;else includeEvidence=present;
+    return write(response,200,{includeLead,includeEvidence});
+  }
   if(url.pathname==="/auth/v1/.well-known/jwks.json")return write(response,200,{keys:[]});
   if(url.pathname==="/auth/v1/token"&&request.method==="POST"){
     let payload="";
@@ -42,9 +49,9 @@ createServer((request,response)=>{
   if(table==="organization_members")rows=[{organization_id:org,user_id:actor,role:"owner",organizations:organization}];
   if(table==="leads"||table==="lead_directory"){
     const wanted=url.searchParams.get("id");
-    if((!wanted||wanted==="eq."+id)&&(!url.searchParams.get("organization_id")||url.searchParams.get("organization_id")==="eq."+org))rows=[lead];
+    if(includeLead&&(!wanted||wanted==="eq."+id)&&(!url.searchParams.get("organization_id")||url.searchParams.get("organization_id")==="eq."+org))rows=[lead];
   }
-  if(table==="evidence_items")rows=[{id:"f0000000-0000-4000-8000-000000000004",kind:"Cadastro",observed:"Observação de teste visual",url:null,provider:"manual",source_label:"Fixture de teste visual",consulted_on:"2026-11-09",method:"Fixture",excerpt:null,confidence:"pendente",review:"pending",review_note:null,expires_at:null,export_allowed:false}];
+  if(table==="evidence_items"&&includeEvidence)rows=[{id:"f0000000-0000-4000-8000-000000000004",kind:"Presença digital",observed:"A página oficial não é atualizada desde 2023.",url:null,provider:"manual",source_label:"Fixture de teste visual",consulted_on:"2026-11-09",method:"Fixture",excerpt:null,confidence:"pendente",review:"pending",review_note:null,expires_at:null,export_allowed:false}];
   if(request.method==="HEAD")return write(response,200,null,{"Content-Range":rows.length?"0-0/1":"*/0"});
   if(select.includes("organizations")&&table!=="organization_members")return write(response,400,{message:"Unexpected fixture relation"});
   return write(response,200,rows,{"Content-Range":rows.length?"0-"+(rows.length-1)+"/"+rows.length:"*/0"});
