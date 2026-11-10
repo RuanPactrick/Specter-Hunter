@@ -44,12 +44,16 @@ export async function queryLeads(params:Search,limit=pageSize,offset?:number) {
   const from=offset ?? (filters.page-1)*pageSize;
   const { data,count,error }=await query.order(sort,{ascending:filters.order==="name"}).order("id").range(from,from+limit-1);
   if(error) throw new Error("Falha ao carregar oportunidades");
-  return { leads:((data??[]) as DirectoryLead[]).map(withCurrentSite), total:count??0, filters };
+  const leads=((data??[]) as DirectoryLead[]).map(withCurrentSite);
+  // leitura automática: mostra na tabela o andamento e a nota sugerida, que ainda depende de revisão na ficha
+  const reads=leads.length?(await db.from("enrichment_requests").select("lead_id,state,suggestion").eq("organization_id",org.id).in("lead_id",leads.map(l=>l.id))).data??[]:[];
+  for(const r of reads){const lead=leads.find(l=>l.id===r.lead_id);if(lead)lead.reading={state:r.state,points:r.suggestion?.points??null,maximum:r.suggestion?.maximum??null};}
+  return { leads, total:count??0, filters };
 }
 export function withCurrentSite<T extends Lead & {effective_website_status?:Lead["website_status"]}>(lead:T):T {
   return { ...lead, website_status:lead.effective_website_status??lead.website_status };
 }
-export type DirectoryLead = Lead & { effective_website_status?:Lead["website_status"]; observed:number; coverage:number; confidence:"suficiente"|"pendente"|"insuficiente"; has_pending:boolean };
+export type DirectoryLead = Lead & { effective_website_status?:Lead["website_status"]; observed:number; coverage:number; confidence:"suficiente"|"pendente"|"insuficiente"; has_pending:boolean; reading?:{state:"pending"|"running"|"done"|"failed";points:number|null;maximum:number|null} };
 export const loadLead = cache(async (id:string) => {
   const { db,org }=await context();
   if(!z.uuid().safeParse(id).success) notFound();
