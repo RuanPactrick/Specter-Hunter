@@ -52,6 +52,19 @@ createServer((request,response)=>{
     if(includeLead&&(!wanted||wanted==="eq."+id)&&(!url.searchParams.get("organization_id")||url.searchParams.get("organization_id")==="eq."+org))rows=[lead];
   }
   if(table==="evidence_items"&&includeEvidence)rows=[{id:"f0000000-0000-4000-8000-000000000004",kind:"Presença digital",observed:"A página oficial não é atualizada desde 2023.",url:null,provider:"manual",source_label:"Fixture de teste visual",consulted_on:"2026-11-09",method:"Fixture",excerpt:null,confidence:"pendente",review:"pending",review_note:null,expires_at:null,export_allowed:false}];
+  // FIXTURE_READING=1: fila de leitura em andamento para ver o painel ao vivo
+  if(process.env.FIXTURE_READING==="1"){
+    const ago=m=>new Date(Date.now()-m*60000).toISOString();
+    const queue=[["f0000000-0000-4000-8000-000000000011","Oral Smile Odontologia","done",null,ago(6),{points:45,maximum:85,signals:{site_vivo:true}}],
+      ["f0000000-0000-4000-8000-000000000012","Dra. Mellina Lima","running","Pesquisando site, Instagram e CNPJ no Google",ago(1),null],
+      ["f0000000-0000-4000-8000-000000000013","Sorriso e Cia: Dentista","pending",null,ago(7),null],
+      ["f0000000-0000-4000-8000-000000000014","Clínica DENTEBRAS","pending",null,ago(7),null],
+      ["f0000000-0000-4000-8000-000000000015","Smart Odonto","failed",null,ago(3),null]];
+    if(table==="enrichment_requests"&&select.startsWith("lead_id,state,step,error_code,suggestion,requested_at"))
+      rows=queue.map(([lead_id,,state,step,at,suggestion])=>({lead_id,state,step,error_code:state==="failed"?"lease_exhausted":null,suggestion,requested_at:ago(8),finished_at:state==="done"||state==="failed"?at:null}));
+    if(table==="leads"&&select==="id,name")rows=queue.map(([id,name])=>({id,name}));
+    if(table==="lead_contacts"&&select==="lead_id")rows=[1,2,3,4].map(()=>({lead_id:queue[0][0]}));
+  }
   if(request.method==="HEAD")return write(response,200,null,{"Content-Range":rows.length?"0-0/1":"*/0"});
   if(select.includes("organizations")&&table!=="organization_members")return write(response,400,{message:"Unexpected fixture relation"});
   return write(response,200,rows,{"Content-Range":rows.length?"0-"+(rows.length-1)+"/"+rows.length:"*/0"});
