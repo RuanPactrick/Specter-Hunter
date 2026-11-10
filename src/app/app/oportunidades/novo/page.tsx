@@ -1,7 +1,8 @@
 import { createLead } from "@/lib/lead-actions";
 import { context } from "@/lib/auth";
-import { regions, today, sectors } from "@/lib/domain";
-import { ButtonLink, Field, Flash, Heading, Notice, Panel, Select, type Search } from "@/components/ui";
+import { today, sectors } from "@/lib/domain";
+import { ButtonLink, Field, Flash, Heading, Notice, Panel, type Search } from "@/components/ui";
+import { StateCity } from "@/components/state-city";
 import { Submit } from "@/components/submit";
 export const metadata={title:"Cadastrar empresa"};
 export default async function NewLead({ searchParams }:{searchParams:Promise<Search>}) {
@@ -11,8 +12,7 @@ export default async function NewLead({ searchParams }:{searchParams:Promise<Sea
     <Panel title="Empresa"><div className="fields pad">
       <Field label="Nome da empresa" full><input name="name" maxLength={160} required/></Field>
       <Field label="Segmento"><input name="sector" list="sectors" maxLength={100} required/><datalist id="sectors">{sectors.map(item=><option key={item} value={item}/>)}</datalist></Field>
-      <Field label="Cidade"><input name="city" defaultValue={org.city} maxLength={100} required/></Field>
-      <Field label="Estado"><Select name="region" options={regions} defaultValue={org.region}/></Field>
+      <StateCity region={org.region} city={org.city}/>
       <Field label="Bairro"><input name="district" maxLength={100}/></Field>
       <Field label="Endereço comercial (opcional)" full><input name="address" maxLength={250}/></Field>
       <Field label="Observações" full><textarea name="notes" maxLength={2500}/></Field>

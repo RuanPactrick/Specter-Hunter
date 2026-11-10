@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { context } from "@/lib/auth";
 import { googleEnabled } from "@/lib/providers";
-import { formatDate,regions,researchStates,sectors,type ResearchJob } from "@/lib/domain";
+import { formatDate,researchStates,sectors,type ResearchJob } from "@/lib/domain";
+import { StateCity } from "@/components/state-city";
 import { startResearch } from "@/lib/research-actions";
 import { Submit } from "@/components/submit";
-import { ButtonLink,Empty,Field,Flash,Heading,Notice,Panel,Select,Tag,type Search } from "@/components/ui";
+import { ButtonLink,Empty,Field,Flash,Heading,Notice,Panel,Tag,type Search } from "@/components/ui";
 export const metadata={title:"Nova pesquisa"};
 export default async function ResearchPage({searchParams}:{searchParams:Promise<Search>}) {
   const {db,org}=await context();
@@ -17,7 +18,7 @@ export default async function ResearchPage({searchParams}:{searchParams:Promise<
   {!enabled&&<Notice tone="warning"><strong>Descoberta externa desativada.</strong> Configure o Google Places no servidor e inicie o worker. <Link href="/app/oportunidades/novo">Cadastrar manualmente</Link></Notice>}
   <div className="grid-two"><Panel title="Configurar pesquisa" action={<Tag tone={enabled?"success":"warning"}>{enabled?"Google Places":"Integração ausente"}</Tag>}>
   <form action={startResearch} className="pad stack"><input type="hidden" name="request_id" value={randomUUID()}/>
-  <div className="fields"><Field label="Cidade"><input name="city" required maxLength={100} defaultValue={org.city}/></Field><Field label="Estado"><Select name="region" options={regions} defaultValue={org.region}/></Field>
+  <div className="fields"><StateCity region={org.region} city={org.city}/>
   <Field label="Bairros opcionais" full><input name="districts" maxLength={250} placeholder="Ex.: Centro, Cohama"/></Field>
   <Field label="Segmento"><input name="segment" list="segments" required maxLength={150} defaultValue={org.segments.split(",")[0]?.trim()}/><datalist id="segments">{sectors.map(s=><option value={s} key={s}/>)}</datalist></Field>
   <Field label="Quantidade desejada"><input type="number" name="desired" min={1} max={60} defaultValue={10} required/></Field>

@@ -3,7 +3,8 @@ import { Download, Plus, ScanSearch, Search as SearchIcon, SlidersHorizontal, Up
 import { ButtonLink, Empty, Flash, Field, Heading, Select, type Search } from "@/components/ui";
 import { context } from "@/lib/auth";
 import { pageSize, queryLeads } from "@/lib/data";
-import { regions, sectors, sites, stages } from "@/lib/domain";
+import { sectors, sites, stages } from "@/lib/domain";
+import { StateCity } from "@/components/state-city";
 import { LeadTable } from "@/components/lead-table";
 import { Submit } from "@/components/submit";
 import { requestEnrichmentAll } from "@/lib/research-actions";
@@ -13,12 +14,10 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
   const [{ leads,total,filters },{ memberships,userId,org,db }]=await Promise.all([queryLeads(params),context()]);
   const [{ data:memberRows },{ data:places }]=await Promise.all([
     db.from("organization_members").select("user_id,role").eq("organization_id",org.id).limit(100),
-    db.from("leads").select("city,region,sector").eq("organization_id",org.id).limit(2000)
+    db.from("leads").select("sector").eq("organization_id",org.id).limit(2000)
   ]);
-  // cidades da carteira (só do estado escolhido, se houver) e segmentos do app mais os já usados
-  const sort=(list:string[])=>[...new Set(list.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-  const cities=sort([...(places??[]).filter(p=>!filters.region||p.region===filters.region).map(p=>String(p.city)),filters.city]);
-  const segments=sort([...sectors,...(places??[]).map(p=>String(p.sector)),filters.sector]);
+  // segmentos do app mais os já usados na carteira
+  const segments=[...new Set([...sectors,...(places??[]).map(p=>String(p.sector)),filters.sector].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const owners=Object.fromEntries((memberRows??[]).map(m=>[String(m.user_id),m.user_id===userId?"Minha responsabilidade":String(m.role==="owner"?"Proprietário ":"Membro ")+String(m.user_id).slice(0,8)]));
   if(!Object.keys(owners).length&&memberships.length) owners[userId]="Minha responsabilidade";
   const query=new URLSearchParams();
@@ -31,8 +30,7 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
     <Flash params={params}/><section className="panel">
     <form action="/app/oportunidades" className="filters" aria-label="Filtrar oportunidades"><div className="filter-grid">
       <Field label="Buscar empresa"><span className="search-field"><SearchIcon size={15} aria-hidden="true"/><input type="search" name="q" defaultValue={filters.q} placeholder="Nome, domínio ou segmento"/></span></Field>
-      <Field label="Estado"><Select name="region" options={regions} defaultValue={filters.region} empty="Todos"/></Field>
-      <Field label="Cidade"><Select name="city" options={cities} defaultValue={filters.city} empty="Todas"/></Field>
+      <StateCity region={filters.region} city={filters.city} filter/>
       <Field label="Segmento"><Select name="sector" options={segments} defaultValue={filters.sector} empty="Todos"/></Field>
       <Field label="Situação do site"><Select name="site" options={sites} defaultValue={filters.site} empty="Todas"/></Field>
       <button className="btn primary" type="submit"><SearchIcon size={15} aria-hidden="true"/>Buscar</button></div>

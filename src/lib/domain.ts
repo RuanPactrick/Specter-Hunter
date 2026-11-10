@@ -21,7 +21,7 @@ export const criteria = {
 } as const;
 export const purposes = { confirm: "Confirmar responsável", permit: "Pedir autorização", preview: "Apresentar prévia", follow: "Acompanhar retorno", price: "Responder preço", close: "Encerrar contato" } as const;
 export const checklist = ["Informações revisadas", "Contatos testados", "Materiais autorizados", "Aviso de demonstração", "Não indexada", "Responsividade revisada"];
-export const regions = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
+export { regions } from "./regions";
 export const sectors = ["Academia","Advocacia","Arquitetura","Barbearia","Cafeteria","Confeitaria","Construtora","Contabilidade","Design de interiores","Energia solar","Escola e cursos",
   "Estética","Fisioterapia","Imobiliária","Móveis planejados","Odontologia","Oficinas","Pet shop","Pilates","Restaurante","Salão de beleza","Serviços locais","Veterinária"];
 export const offerKinds = ["Site institucional", "Landing page", "Cardápio", "Catálogo sem checkout", "Portfólio", "Página de serviços", "Página por unidade", "Reformulação de site"];
