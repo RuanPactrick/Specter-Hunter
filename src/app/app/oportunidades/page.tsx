@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Plus, Search as SearchIcon, SlidersHorizontal, Upload } from "lucide-react";
+import { Download, Plus, ScanSearch, Search as SearchIcon, SlidersHorizontal, Upload } from "lucide-react";
 import { ButtonLink, Empty, Flash, Field, Heading, Select, type Search } from "@/components/ui";
 import { context } from "@/lib/auth";
 import { pageSize, queryLeads } from "@/lib/data";
@@ -20,9 +20,6 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
   const max=Math.max(1,Math.ceil(total/pageSize));
   const expanded=Boolean(filters.district||filters.stage||filters.priority||filters.owner||filters.date||filters.confidence||filters.pending||filters.order!=="updated");
   return <><Heading group="Carteira de prospecção" title="Oportunidades" description="Revise evidências e decida o próximo passo de cada empresa.">
-    <ButtonLink href="/app/oportunidades/importar"><Upload size={16} aria-hidden="true"/>Importar</ButtonLink>
-    <a className="btn" href={"/api/exportar?"+query.toString()}><Download size={16} aria-hidden="true"/>Exportar</a>
-    <form action={requestEnrichmentAll}><Submit style="">Ler sites dos leads</Submit></form>
     <ButtonLink href="/app/oportunidades/novo" style="primary"><Plus size={16} aria-hidden="true"/>Cadastrar empresa</ButtonLink></Heading>
     <Flash params={params}/><section className="panel">
     <form action="/app/oportunidades" className="filters" aria-label="Filtrar oportunidades"><div className="filter-grid">
@@ -42,7 +39,12 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
       <label className="check"><input type="checkbox" name="pending" value="1" defaultChecked={filters.pending}/>Com pendências</label>
       </div></details>
     </form>
-    <div className="table-top"><strong>{total} {total===1?"oportunidade":"oportunidades"}</strong><Link href="/app/oportunidades">Limpar filtros</Link></div>
+    <div className="table-top"><span className="inline"><strong>{total} {total===1?"oportunidade":"oportunidades"}</strong><Link href="/app/oportunidades">Limpar filtros</Link></span>
+      <div className="actions">
+        <form action={requestEnrichmentAll}><Submit style="small"><ScanSearch size={15} aria-hidden="true"/>Ler sites</Submit></form>
+        <ButtonLink href="/app/oportunidades/importar" style="small"><Upload size={15} aria-hidden="true"/>Importar</ButtonLink>
+        <a className="btn small" href={"/api/exportar?"+query.toString()}><Download size={15} aria-hidden="true"/>Exportar</a>
+      </div></div>
     {!leads.length?<Empty title={total?"Página sem registros":"Nenhuma oportunidade encontrada"} description={total?"Volte à primeira página.":"Cadastre uma empresa, importe um CSV ou ajuste os filtros."}><ButtonLink href={total?url(1):"/app/oportunidades/novo"} style="primary">{total?"Primeira página":"Cadastrar empresa"}</ButtonLink></Empty>:<LeadTable leads={leads}/>}
     <div className="table-foot"><span>Página {filters.page} de {max}</span><div className="actions">{filters.page>1&&<ButtonLink href={url(filters.page-1)} style="small">Anterior</ButtonLink>}{filters.page<max&&<ButtonLink href={url(filters.page+1)} style="small">Próxima</ButtonLink>}</div></div>
     </section></>;

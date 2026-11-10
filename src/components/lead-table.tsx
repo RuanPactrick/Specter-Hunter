@@ -5,7 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { Avatar, SiteTag, Tag } from "./ui";
 import { formatDate } from "@/lib/domain";
 import type { DirectoryLead } from "@/lib/data";
-const heading=["Empresa","Segmento","Localização","Presença digital","Índice de oportunidade","Cobertura","Próxima ação","Última consulta"];
+const heading=["Empresa","Segmento","Localização","Presença digital","Índice de oportunidade","Próxima ação","Última consulta"];
 export function LeadTable({ leads }:{leads:DirectoryLead[]}) {
   const [selected,setSelected]=useState<string[]>([]);
   const current=selected.filter(id=>leads.some(lead=>lead.id===id));
@@ -17,8 +17,8 @@ export function LeadTable({ leads }:{leads:DirectoryLead[]}) {
     </tr></thead><tbody>{leads.map(lead=><tr key={lead.id}><td><input type="checkbox" aria-label={"Selecionar "+lead.name} checked={current.includes(lead.id)} onChange={e=>toggle(lead.id,e.target.checked)}/></td>
     <td><Link className="company" href={"/app/oportunidades/"+lead.id}><Avatar name={lead.name}/><span><strong>{lead.name}</strong><small>{lead.source_label}</small></span></Link></td>
     <td>{lead.sector}</td><td>{lead.city}, {lead.region}{lead.district&&<div className="meta">{lead.district}</div>}</td><td><SiteTag status={lead.website_status}/></td>
-    <td>{lead.coverage?<><strong>{lead.observed} / {lead.coverage}</strong><div className="meta">{lead.coverage<100?"Provisório":"Avaliação completa"}</div></>:<span className="muted">Não avaliado</span>}</td>
-    <td><strong>{lead.coverage}%</strong><br/><Tag tone={lead.confidence==="suficiente"?"success":lead.confidence==="pendente"?"warning":""}>{lead.confidence==="suficiente"?"Evidências suficientes":lead.confidence==="pendente"?"Revisão pendente":"Dados insuficientes"}</Tag></td>
+    <td><div className="stack tight">{lead.coverage?<span><strong>{lead.observed} / {lead.coverage}</strong> <span className="meta">· {lead.coverage}% avaliado</span></span>:<span className="muted">Não avaliado</span>}
+      <Tag tone={lead.confidence==="suficiente"?"success":lead.confidence==="pendente"?"warning":""}>{lead.confidence==="suficiente"?"Evidências suficientes":lead.confidence==="pendente"?"Revisão pendente":"Dados insuficientes"}</Tag></div></td>
     <td>{lead.next_action||"A definir"}</td><td><time dateTime={lead.consulted_on} className="mono">{formatDate(lead.consulted_on)}</time></td></tr>)}</tbody></table></div>
     <div className="mobile-list">{leads.map(lead=><article className="row mobile-lead-row" key={lead.id}>
       <label className="mobile-select"><input type="checkbox" aria-label={"Selecionar "+lead.name} checked={current.includes(lead.id)} onChange={e=>toggle(lead.id,e.target.checked)}/></label>

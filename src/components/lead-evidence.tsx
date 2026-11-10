@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScanSearch } from "lucide-react";
 import { ButtonLink, Empty, Field, Notice, Pairs, Panel, SafeLink, Select, SiteTag, Tag } from "./ui";
 import { Submit } from "./submit";
 import { MoveForm } from "./move-form";
@@ -36,8 +37,8 @@ function SiteReading({lead,row}:{lead:Lead;row:EnrichmentRow|null}) {
       ...(row.suggestion?[["Nota sugerida",row.suggestion.points+" de "+row.suggestion.maximum] as [string,string],["Oportunidade sugerida",row.suggestion.opportunity??"—"] as [string,string]]:[]),
       ...(row.error_code?[["Erro",row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
     {row?.suggestion&&<p className="meta">{row.suggestion.rationale}</p>}
-    <p className="muted">O worker lê o domínio informado{searchEnabled()?", pesquisa na web o site, o Instagram e o CNPJ que faltarem,":""} e grava evidências e contatos como pendentes. A nota é uma sugestão e não entra no índice comercial até você revisar.</p>
-    {lead.domain||searchEnabled()?<form action={requestEnrichment.bind(null,lead.id)}><Submit style="small">{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio do lead para ler o site.</Notice>}
+    <p className="muted">Lê o site{searchEnabled()?", procura na web o site, o Instagram e o CNPJ que faltarem,":""} e traz contatos e evidências para você revisar. A nota é só uma sugestão.</p>
+    {lead.domain||searchEnabled()?<form action={requestEnrichment.bind(null,lead.id)}><Submit style={row?"":"primary"}><ScanSearch size={16} aria-hidden="true"/>{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio da empresa para ler o site.</Notice>}
   </div></Panel>;
 }
 export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<string,string>;owner:boolean}) {
@@ -124,13 +125,12 @@ export async function EvidenceTab({lead}:{lead:Lead}) {
 export async function PresenceTab({lead}:{lead:Lead}) {
   const [items,latest,reading]=await Promise.all([loadEvidence(lead.id),latestSite(lead.id),latestEnrichment(lead.id)]);
   const linked=latest?items.find(item=>item.id===latest.evidence_id):undefined;
-  return <div className="grid-two"><div className="stack"><Panel title="Situação do site"><div className="pad stack"><Pairs items={[
+  return <div className="grid-two"><div className="stack"><SiteReading lead={lead} row={reading}/><Panel title="Situação do site"><div className="pad stack"><Pairs items={[
   ["Classificação",<SiteTag status={lead.website_status} key="status"/>],["Domínio informado",lead.domain?<code key="domain">{lead.domain}</code>:"A confirmar"],
   ["Data da avaliação",formatDate(latest?.created_at??null)],["Performance","Não avaliado"]
   ]}/><Notice tone="warning">Não localizar um site nas consultas realizadas não comprova sua inexistência. Confirme o vínculo com fonte oficial ou comercial.</Notice></div></Panel>
   <Panel title="Como chegamos a esta conclusão"><div className="pad stack">{linked?<><strong>{linked.observed}</strong><span className="meta">{linked.source_label} · {formatDate(linked.consulted_on)}</span><p>Método: {latest?.method}</p></>:<p className="muted">{latest?"A evidência original expirou ou está indisponível. Reavalie a conclusão.":"Nenhuma avaliação com evidência registrada."}</p>}</div></Panel>
   <Panel title="O que ainda falta verificar"><p className="pad">{latest?.pending||"Confirme o domínio oficial e descarte homônimos antes de classificar."}</p></Panel>
-  <SiteReading lead={lead} row={reading}/>
   <Panel title="Verificações externas"><div className="pad stack"><p>Abra a busca de fontes quando habilitada. A revisão da evidência continua manual.</p><ButtonLink href={"/app/verificar/"+lead.id}>Verificar fontes</ButtonLink></div></Panel>
   </div><Panel title="Registrar avaliação"><form className="pad stack" action={assessSite.bind(null,lead.id)}>
   <Field label="Classificação"><Select name="status" options={sites} defaultValue={lead.website_status}/></Field>

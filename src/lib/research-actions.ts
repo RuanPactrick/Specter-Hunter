@@ -39,7 +39,7 @@ export async function requestEnrichmentAll() {
   saveError(back,listError);
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:(rows??[]).map(r=>r.id)});
   saveError(back,error);
-  message(back,data?data+" leads entraram na fila de leitura do site.":"Nenhum lead novo para ler: sem domínio ou já na fila.",Boolean(data));
+  message(back,data?data+" empresas entraram na fila de leitura do site.":"Nenhuma empresa nova para ler: sem domínio ou já na fila.",Boolean(data));
 }
 export async function cancelResearch(id:string) {
   const {db,org}=await context();

@@ -20,7 +20,7 @@ export function Breadcrumb() {
 }
 export function MobileNav() {
   const path=usePathname();
-  const mobile=[["/app","Início",LayoutDashboard],["/app/oportunidades","Leads",Rows3],["/app/tarefas","Tarefas",ListChecks],["/app/mais","Mais",Ellipsis]] as const;
+  const mobile=[["/app","Início",LayoutDashboard],["/app/oportunidades","Oportunidades",Rows3],["/app/tarefas","Tarefas",ListChecks],["/app/mais","Mais",Ellipsis]] as const;
   const isMore=!mobile.slice(0,3).some(([url])=>current(path,url));
   return <nav className="mobile-nav" aria-label="Navegação mobile">{mobile.map(([url,label,Icon])=><Link key={url} href={url} aria-current={(url==="/app/mais"?isMore:current(path,url))?"page":undefined}><Icon size={19} aria-hidden="true"/>{label}</Link>)}</nav>;
 }
