@@ -3,7 +3,8 @@ import { Agent, fetch } from "undici";
 import ipaddr from "ipaddr.js";
 import { publicUrl } from "./domain";
 
-const limits={bytes:200*1024,redirects:3,timeout:10_000};
+// páginas maiores são lidas até o limite e cortadas, não recusadas (rodapé com contatos costuma vir no fim)
+const limits={bytes:2*1024*1024,redirects:3,timeout:10_000};
 const ip4Denied=["192.0.0.0/24","192.88.99.0/24","198.18.0.0/15","198.51.100.0/24","203.0.113.0/24"];
 const ip6Denied=["2001::/23","2001:db8::/32","2002::/16","3fff::/20"];
 export function isPublicAddress(value:string) {
@@ -42,8 +43,6 @@ async function readBody(response:Awaited<ReturnType<typeof fetch>>) {
     await response.body?.cancel();
     return null;
   }
-  const length=Number(response.headers.get("content-length"));
-  if(length>limits.bytes){await response.body?.cancel();throw new Error("size");}
   const reader=response.body?.getReader();
   if(!reader)return null;
   let read=0,html="";
@@ -52,9 +51,9 @@ async function readBody(response:Awaited<ReturnType<typeof fetch>>) {
     while(true){
       const chunk=await reader.read();
       if(chunk.done)break;
+      html+=decoder.decode(chunk.value.subarray(0,limits.bytes-read),{stream:true});
       read+=chunk.value.length;
-      if(read>limits.bytes)throw new Error("size");
-      html+=decoder.decode(chunk.value,{stream:true});
+      if(read>=limits.bytes)break;
     }
     html+=decoder.decode();
   }finally{await reader.cancel().catch(()=>undefined);}
