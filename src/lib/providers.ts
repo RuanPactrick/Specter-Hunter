@@ -7,7 +7,8 @@ export const policies={
 } as const;
 export const googleEnabled=()=>process.env.ENABLE_GOOGLE_PLACES==="true"&&Boolean(process.env.GOOGLE_PLACES_API_KEY);
 export const braveEnabled=()=>process.env.ENABLE_BRAVE_SEARCH==="true"&&Boolean(process.env.BRAVE_SEARCH_API_KEY);
-export const apifyEnabled=()=>process.env.ENABLE_APIFY==="true"&&Boolean(process.env.APIFY_TOKEN);
+// Só a flag: o site (Vercel) não precisa do token, que fica onde o worker roda. O worker desliga a flag se faltar o token.
+export const apifyEnabled=()=>process.env.ENABLE_APIFY==="true";
 /** Algum motor de pesquisa na web para a leitura automática: Apify (preferido) ou Brave. */
 export const searchEnabled=()=>apifyEnabled()||braveEnabled();
 export const readerEnabled=()=>process.env.ENABLE_OFFICIAL_PAGE_READING==="true";

@@ -10,6 +10,7 @@ const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
 const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+if(process.env.ENABLE_APIFY==="true"&&!process.env.APIFY_TOKEN){console.error("ENABLE_APIFY ligado sem APIFY_TOKEN: o Apify fica desligado nesta execução.");process.env.ENABLE_APIFY="false";}
 let stopping=false;
 process.on("SIGINT",()=>{stopping=true;});
 process.on("SIGTERM",()=>{stopping=true;});
@@ -133,23 +134,31 @@ async function enrich(item:Enrichment){
   const saved=await db.rpc("finish_enrichment",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_result:result,p_error:error});
   if(saved.error)console.error("Falha ao gravar leitura do site; o lease permite nova tentativa.",saved.error.code);
 }
+// WORKER_ONCE=1: esvazia a fila e encerra (rodada agendada no GitHub Actions, sem servidor ligado o tempo todo).
+// WORKER_MAX_MINUTES limita a rodada para não ficar presa num job.
+const once=process.env.WORKER_ONCE==="1";
+const deadline=Date.now()+Number(process.env.WORKER_MAX_MINUTES??20)*60000;
 async function main(){
-  console.log("Worker Specter Hunter iniciado. Uma execução por processo.");
+  console.log("Worker Specter Hunter iniciado."+(once?" Modo rodada única: encerra quando a fila esvaziar.":" Uma execução por processo."));
+  let done=0;
   while(!stopping){
+    if(once&&Date.now()>deadline){console.log("Tempo da rodada esgotado; o restante fica para a próxima.");break;}
     try {
       const {data,error}=await db.rpc("claim_research");
       if(error){console.error("Fila indisponível.",error.code);await sleep(5000);continue;}
       const job=data?.[0] as Job|undefined;
-      if(job){await run(job);continue;}
+      if(job){await run(job);done++;continue;}
       if(readerEnabled()){
         const next=await db.rpc("claim_enrichment");
         if(next.error)console.error("Fila de leitura indisponível.",next.error.code);
         const item=next.data?.[0] as Enrichment|undefined;
-        if(item){await enrich(item);continue;}
+        if(item){await enrich(item);done++;continue;}
       }
+      if(once){console.log("Fila vazia. "+done+" itens processados nesta rodada.");break;}
       await sleep(1500);
     }catch{
       console.error("Execução interrompida; o lease permite recuperar o job.");
+      if(once)break;
       await sleep(5000);
     }
   }

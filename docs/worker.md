@@ -18,3 +18,11 @@ A identidade do usuário é verificada ao enfileirar ou cancelar. As funções d
 Com **ENABLE_OFFICIAL_PAGE_READING=true** no processo do worker, quando não há pesquisa na fila ele atende os pedidos de **Ler o site** (aba Presença digital do lead) e **Ler sites dos leads** (Oportunidades). Cada pedido tem lease de 120 segundos e até 3 tentativas. Um site fora do ar vira evidência, não falha. Lead bloqueado no meio do caminho é descartado sem gravar nada.
 
 Com **ENABLE_APIFY=true** e **APIFY_TOKEN** (preferido) ou **ENABLE_BRAVE_SEARCH=true** e **BRAVE_SEARCH_API_KEY** também no processo do worker, a leitura pesquisa na web o site, o Instagram e o CNPJ que faltarem, e lead sem domínio também pode ser lido. Cada busca é reservada no banco antes da chamada. Quando a cota acaba, o lead é gravado com o que já foi achado e uma evidência avisando.
+
+## Rodar de graça no GitHub Actions
+
+O arquivo `.github/workflows/worker.yml` roda o worker a cada 5 minutos em modo rodada única (`WORKER_ONCE=1`): ele esvazia a fila e encerra, então não precisa de servidor ligado o tempo todo. Em repositório público os minutos do Actions são ilimitados. O GitHub pode atrasar rodadas agendadas em alguns minutos, e desliga o agendamento depois de 60 dias sem commits no repositório (basta reativar em Actions).
+
+Cadastre em **Settings → Secrets and variables → Actions** do repositório: **SUPABASE_URL**, **SUPABASE_SERVICE_ROLE_KEY** e **APIFY_TOKEN**. Sem as duas chaves do Supabase, a rodada termina sem fazer nada. Para rodar na hora, use **Actions → Worker (rodada agendada) → Run workflow**.
+
+No site (Vercel), bastam **ENABLE_APIFY=true** e **ENABLE_OFFICIAL_PAGE_READING=true** para mostrar a busca no Maps e o Ler sites. O token do Apify e a chave service role ficam só no GitHub.
