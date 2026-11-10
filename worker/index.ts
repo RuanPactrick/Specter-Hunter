@@ -82,8 +82,12 @@ async function run(job:Job){
 type Enrichment={organization_id:string;lead_id:string;lease_token:string;domain:string|null;name:string;city:string;region:string;phones:string[]};
 async function enrich(item:Enrichment){
   let result:ReturnType<typeof enrichmentPayload>|null=null,error:string|null=null;
+  // etapa visível na tela; também renova o lease nas etapas demoradas
+  const step=(label:string)=>db.rpc("enrichment_step",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_step:label}).then(()=>undefined,()=>undefined);
+  console.log("Lendo: "+item.name);
   if(!item.domain&&!searchEnabled())error="no_domain";
   else try{
+    if(item.domain)await step("Lendo o site "+item.domain);
     const site=item.domain?await readSite(item.domain):null;
     // cada busca é reservada no banco antes da chamada; cota esgotada ou motor fora encerra a pesquisa, não a leitura
     let stopped:"quota"|"provider"|null=null;
@@ -98,6 +102,7 @@ async function enrich(item:Enrichment){
     const run=async(queries:string[])=>{
       const fresh=[...new Set(queries.map(searchKey))].filter(q=>!cache.has(q));
       if(stopped||!fresh.length||!await reserve(fresh.length))return;
+      await step("Pesquisando site, Instagram e CNPJ no Google");
       try{
         if(provider==="apify")for(const [q,rows] of await apifyGoogle(fresh,process.env.APIFY_TOKEN!))cache.set(q,rows);
         else for(const q of fresh)cache.set(q,await braveWeb(q,10,process.env.BRAVE_SEARCH_API_KEY!));
@@ -119,6 +124,7 @@ async function enrich(item:Enrichment){
         if(stopped||!await reserve(1))return undefined;
         try{return await call();}catch(cause){if(!(cause instanceof ProviderError))throw cause;stopped="provider";return undefined;}
       };
+      await step("Conferindo Instagram e anúncios na Meta");
       social=await socialLead({name:item.name,phones:item.phones??[]},siteInsta??(searchInsta?"https://www.instagram.com/"+searchInsta.normalized:null),!siteInsta,
         current?.ok?domain(current.url):item.domain,{profile:u=>guarded(()=>apifyProfile(u,token)),ads:n=>guarded(()=>apifyAds(n,token))});
     }
@@ -131,6 +137,7 @@ async function enrich(item:Enrichment){
     const why={quota:"A cota diária de pesquisas da leitura automática acabou.",provider:"O motor de pesquisa ("+provider+") recusou ou não respondeu; confira a chave e o crédito."} as const;
     if(stopped)result.evidence.push({kind:"Pesquisa interrompida",observed:why[stopped as keyof typeof why]+" O que faltou pode ser pedido de novo depois.",url:null,excerpt:null});
   }catch{error="reader_failed";}
+  console.log("Leitura "+(error?"falhou ("+error+")":"concluída")+": "+item.name);
   const saved=await db.rpc("finish_enrichment",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_result:result,p_error:error});
   if(saved.error)console.error("Falha ao gravar leitura do site; o lease permite nova tentativa.",saved.error.code);
 }

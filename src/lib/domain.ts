@@ -109,3 +109,5 @@ export function whatsappLink(contact: Contact | undefined, content: string) {
   if (contact?.kind !== "whatsapp" || !contact.confirmed || !/^\+[1-9]\d{7,14}$/.test(contact.normalized) || !content.trim()) return null;
   return "https://wa.me/" + contact.normalized.slice(1) + "?text=" + encodeURIComponent(content);
 }
+/** Motivo da falha da leitura automática em palavras do usuário. */
+export const readingErrors:Record<string,string>={no_domain:"sem site e sem pesquisa na web ligada",reader_failed:"erro inesperado durante a leitura",lease_exhausted:"o robô parou 3 vezes no meio da leitura",blocked:"empresa marcada como não contatar"};

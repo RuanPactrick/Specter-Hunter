@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, Plus, ScanSearch, Search as SearchIcon, SlidersHorizontal, Upload } from "lucide-react";
-import { ButtonLink, Empty, Flash, Field, Heading, Select, type Search } from "@/components/ui";
+import { ButtonLink, Empty, Flash, Field, Heading, Notice, Select, type Search } from "@/components/ui";
+import { Refresh } from "@/components/refresh";
 import { context } from "@/lib/auth";
 import { pageSize, queryLeads } from "@/lib/data";
 import { sectors, sites, stages } from "@/lib/domain";
@@ -12,10 +13,12 @@ export const metadata={title:"Oportunidades"};
 export default async function Opportunities({ searchParams }:{searchParams:Promise<Search>}) {
   const params=await searchParams;
   const [{ leads,total,filters },{ memberships,userId,org,db }]=await Promise.all([queryLeads(params),context()]);
-  const [{ data:memberRows },{ data:places }]=await Promise.all([
+  const [{ data:memberRows },{ data:places },{ data:queue }]=await Promise.all([
     db.from("organization_members").select("user_id,role").eq("organization_id",org.id).limit(100),
-    db.from("leads").select("sector").eq("organization_id",org.id).limit(2000)
+    db.from("leads").select("sector").eq("organization_id",org.id).limit(2000),
+    db.from("enrichment_requests").select("state").eq("organization_id",org.id).in("state",["pending","running"]).limit(200)
   ]);
+  const running=(queue??[]).filter(q=>q.state==="running").length, waiting=(queue??[]).length-running;
   // segmentos do app mais os já usados na carteira
   const segments=[...new Set([...sectors,...(places??[]).map(p=>String(p.sector)),filters.sector].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const owners=Object.fromEntries((memberRows??[]).map(m=>[String(m.user_id),m.user_id===userId?"Minha responsabilidade":String(m.role==="owner"?"Proprietário ":"Membro ")+String(m.user_id).slice(0,8)]));
@@ -27,7 +30,9 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
   const expanded=Boolean(filters.district||filters.stage||filters.priority||filters.owner||filters.date||filters.confidence||filters.pending||filters.order!=="updated");
   return <><Heading group="Carteira de prospecção" title="Oportunidades" description="Revise evidências e decida o próximo passo de cada empresa.">
     <ButtonLink href="/app/oportunidades/novo" style="primary"><Plus size={16} aria-hidden="true"/>Cadastrar empresa</ButtonLink></Heading>
-    <Flash params={params}/><section className="panel">
+    <Flash params={params}/><Refresh active={Boolean(queue?.length)}/>
+    {Boolean(queue?.length)&&<Notice><strong>Leitura em andamento:</strong> {running?running+" empresa(s) sendo lida(s) agora":"nenhuma sendo lida neste instante"}{waiting?", "+waiting+" na fila":""}. A etapa de cada empresa aparece na tabela e a página se atualiza sozinha. Cada empresa leva de 1 a 3 minutos, e o robô verifica a fila a cada 5 minutos.</Notice>}
+    <section className="panel">
     <form action="/app/oportunidades" className="filters" aria-label="Filtrar oportunidades"><div className="filter-grid">
       <Field label="Buscar empresa"><span className="search-field"><SearchIcon size={15} aria-hidden="true"/><input type="search" name="q" defaultValue={filters.q} placeholder="Nome, domínio ou segmento"/></span></Field>
       <StateCity region={filters.region} city={filters.city} filter/>

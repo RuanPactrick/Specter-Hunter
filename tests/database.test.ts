@@ -188,7 +188,18 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     expect(next).toMatchObject({lead_id:leadA,name:"Empresa Teste A",phones:[]});
     expect(await first("select public.reserve_enrichment_search($1,$2,$3,'apify',4) ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
     expect(await first("select public.reserve_enrichment_search($1,$2,gen_random_uuid(),'apify') ok",[orgA,leadA])).toEqual({ok:false});
+    expect(await first("select public.enrichment_step($1,$2,$3,'Lendo o site') ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
+    expect(await first("select public.enrichment_step($1,$2,gen_random_uuid(),'x') ok",[orgA,leadA])).toEqual({ok:false});
     await role("postgres");
+    expect(await first("select step from public.enrichment_requests where lead_id=$1",[leadA])).toEqual({step:"Lendo o site"});
+    await role("service_role");
+    // releitura com site no ar: troca a evidência pendente e classifica o site com a leitura confirmada
+    const reread=JSON.stringify({site_status:"owned",site_url:"https://sample.example/",evidence:[{kind:"Leitura do site",observed:"O site respondeu HTTP 200.",url:"https://sample.example/"}],contacts:[],suggestion:{points:25,maximum:85}});
+    expect(await first("select public.finish_enrichment($1,$2,$3,$4::jsonb) ok",[orgA,leadA,next.lease_token,reread])).toEqual({ok:true});
+    await role("postgres");
+    expect((await db.query("select kind,review from public.evidence_items where lead_id=$1 and provider='site_reader'",[leadA])).rows).toEqual([{kind:"Leitura do site",review:"confirmed"}]);
+    expect(await first("select effective_website_status s from public.lead_directory where id=$1",[leadA])).toEqual({s:"owned"});
+    expect(await first("select step,state from public.enrichment_requests where lead_id=$1",[leadA])).toEqual({step:null,state:"done"});
     expect(await first("select count(*)::int n from public.provider_usage where organization_id=$1 and provider='apify' and operation='enrich'",[orgA])).toEqual({n:4});
   });
   it("lê em lote só empresas nunca lidas, até a quantidade pedida",async()=>{

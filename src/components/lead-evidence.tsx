@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ScanSearch } from "lucide-react";
 import { ButtonLink, Empty, Field, Notice, Pairs, Panel, SafeLink, Select, SiteTag, Tag } from "./ui";
 import { Submit } from "./submit";
+import { Refresh } from "./refresh";
 import { MoveForm } from "./move-form";
 import { context } from "@/lib/auth";
 import { leadPath, loadAssessment, loadEvidence } from "@/lib/data";
@@ -9,7 +10,7 @@ import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveS
 import { requestEnrichment } from "@/lib/research-actions";
 import { searchEnabled } from "@/lib/providers";
 import type { Suggestion } from "@/lib/enrichment";
-import { criteria, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
+import { criteria, formatDate, readingErrors, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
 export const confirmed = (e:Evidence)=>e.review==="confirmed"||e.review==="corrected";
 export function evidenceOptions(items:Evidence[]) {
   return Object.fromEntries(items.map(e=>[e.id,e.kind+" · "+e.source_label+" · "+formatDate(e.consulted_on)]));
@@ -21,21 +22,21 @@ async function latestSite(id:string) {
   if(error) throw new Error("Falha ao ler a avaliação");
   return data as SiteAssessment|null;
 }
-type EnrichmentRow={state:"pending"|"running"|"done"|"failed";error_code:string|null;suggestion:Suggestion|null;finished_at:string|null};
-const enrichmentStates={pending:"Na fila",running:"Lendo o site",done:"Concluída",failed:"Falhou"} as const;
+type EnrichmentRow={state:"pending"|"running"|"done"|"failed";step:string|null;error_code:string|null;suggestion:Suggestion|null;finished_at:string|null};
+const enrichmentStates={pending:"Na fila: o robô começa em até 5 minutos",running:"Lendo agora",done:"Concluída",failed:"Falhou"} as const;
 async function latestEnrichment(id:string) {
   const {db,org}=await context();
-  const {data,error}=await db.from("enrichment_requests").select("state,error_code,suggestion,finished_at").eq("organization_id",org.id).eq("lead_id",id).maybeSingle();
+  const {data,error}=await db.from("enrichment_requests").select("state,step,error_code,suggestion,finished_at").eq("organization_id",org.id).eq("lead_id",id).maybeSingle();
   if(error) throw new Error("Falha ao ler a leitura do site");
   return data as EnrichmentRow|null;
 }
 function SiteReading({lead,row}:{lead:Lead;row:EnrichmentRow|null}) {
   const busy=row?.state==="pending"||row?.state==="running";
-  return <Panel title="Leitura automática do site"><div className="pad stack">
+  return <Panel title="Leitura automática do site"><div className="pad stack"><Refresh active={busy}/>
     {row?<Pairs items={[["Situação",<Tag key="s" tone={row.state==="failed"?"error":row.state==="done"?"success":""}>{enrichmentStates[row.state]}</Tag>],
-      ["Concluída em",formatDate(row.finished_at)],
+      ...(row.state==="running"?[["Etapa atual",row.step??"Começando"] as [string,string]]:[["Concluída em",formatDate(row.finished_at)] as [string,string]]),
       ...(row.suggestion?[["Nota sugerida",row.suggestion.points+" de "+row.suggestion.maximum] as [string,string],["Oportunidade sugerida",row.suggestion.opportunity??"—"] as [string,string]]:[]),
-      ...(row.error_code?[["Erro",row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
+      ...(row.error_code?[["Motivo da falha",readingErrors[row.error_code]??row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
     {row?.suggestion&&<p className="meta">{row.suggestion.rationale}</p>}
     <p className="muted">Lê o site{searchEnabled()?", procura na web o site, o Instagram e o CNPJ que faltarem,":""} e traz contatos e evidências para você revisar. A nota é só uma sugestão.</p>
     {lead.domain||searchEnabled()?<form action={requestEnrichment.bind(null,lead.id)}><Submit style={row?"":"primary"}><ScanSearch size={16} aria-hidden="true"/>{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio da empresa para ler o site.</Notice>}

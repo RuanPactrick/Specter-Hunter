@@ -36,5 +36,13 @@ describe("Leitura automática do site",()=>{
     expect(payload.contacts).toEqual([]);
     expect(payload.evidence[0].observed).toContain("não comprova");
     expect(payload.suggestion.points).toBe(0);
+    expect(payload.site_status).toBeNull();
+  });
+  it("site que bloqueia robôs (403) conta como no ar",async()=>{
+    const read=vi.fn(async(url:string)=>({url,status:403,html:null}));
+    const payload=enrichmentPayload(await readSite("bloqueia.com.br",read));
+    expect(payload).toMatchObject({site_status:"owned",site_url:"http://bloqueia.com.br/"});
+    expect(payload.evidence[0].observed).toContain("não permite leitura automática");
+    expect(payload.suggestion.points).toBe(25);
   });
 });

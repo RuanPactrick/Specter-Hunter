@@ -9,7 +9,7 @@ const junkEmail = /(sentry|wixpress|example|seuemail|email@|\.png|\.jpg|\.jpeg|\
 
 export type Marketing = { pixel_meta: boolean; pixel_google: boolean; mobile: boolean; whatsapp_button: boolean; copyright: number | null; outdated: boolean };
 export type Found = { emails: string[]; phones: string[]; whatsapp: string | null; instagram: string | null; facebook: string | null; linkedin: string | null; cnpj: string | null };
-export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing } | { ok: false; error: string };
+export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing } | { ok: false; error: string; url?: string };
 export type Suggestion = { points: number; maximum: number; signals: Record<string, boolean>; opportunity: "alta" | "media" | "baixa" | null; rationale: string };
 type ContactRow = { kind: "email" | "phone" | "whatsapp" | "instagram"; value: string; normalized: string };
 type EvidenceRow = { kind: string; observed: string; url: string | null; excerpt: string | null };
@@ -79,21 +79,20 @@ export async function readSite(domain: string, read = readPublicPage): Promise<S
   const start = publicUrl(domain);
   if (!start) return { ok: false, error: "domínio inválido" };
   const candidates = [...new Set([start, start.replace(/^https:/, "http:")])];
-  let error = "sem resposta";
+  let error = "sem resposta", blockedAt: string | undefined;
   for (const candidate of candidates) {
     try {
       const page = await read(candidate, agent);
-      if (page.status >= 400) { error = "HTTP " + page.status; continue; }
+      if (page.status >= 400) { error = "HTTP " + page.status; blockedAt = page.url; continue; }
       if (!page.html) { error = "resposta sem HTML"; continue; }
       let found = extract(page.html);
-      for (const link of internalLinks(page.html, page.url)) {
-        const inner = await read(link, agent).catch(() => null);
+      // páginas internas (contato, sobre) em paralelo
+      for (const inner of await Promise.all(internalLinks(page.html, page.url).map(link => read(link, agent).catch(() => null))))
         if (inner?.html && inner.status < 400) found = merge(found, extract(inner.html));
-      }
       return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html) };
     } catch (cause) { error = cause instanceof Error ? cause.message : "falha"; }
   }
-  return { ok: false, error };
+  return { ok: false, error, ...(blockedAt && error.startsWith("HTTP") ? { url: blockedAt } : {}) };
 }
 
 // Pesos do kit, só os sinais que o site mostra. Reputação e endereço vêm do Maps, que aqui não é guardado.
@@ -119,7 +118,7 @@ export type Extra = { instagram?: boolean; cnpj?: boolean; ads?: boolean };
 export function suggest(site: SiteRead, extra: Extra = {}): Suggestion {
   const f = site.ok ? site.found : null;
   const signals: Record<keyof typeof weights, boolean> = {
-    site_vivo: site.ok, instagram: Boolean(f?.instagram || extra.instagram), email: Boolean(f?.emails.length), telefone: Boolean(f?.phones.length),
+    site_vivo: site.ok || Boolean(site.url), instagram: Boolean(f?.instagram || extra.instagram), email: Boolean(f?.emails.length), telefone: Boolean(f?.phones.length),
     whatsapp: Boolean(f?.whatsapp), cnpj: Boolean(f?.cnpj || extra.cnpj), linkedin: Boolean(f?.linkedin),
   };
   const keys = Object.keys(weights) as (keyof typeof weights)[];
@@ -138,8 +137,13 @@ export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   const evidence: EvidenceRow[] = [];
   const contacts: ContactRow[] = [];
   if (!site.ok) {
+    // respondeu com erro HTTP (ex.: 403 de bloqueio a robôs): o site existe, só não deixou ler o conteúdo
+    if (site.url && /^HTTP [0-9]{3}$/.test(site.error)) {
+      evidence.push({ kind: "Leitura do site", observed: "O site está no ar (respondeu " + site.error + "), mas não permite leitura automática do conteúdo. Contatos vieram da pesquisa na web.", url: site.url, excerpt: null });
+      return { evidence, contacts, suggestion: suggest(site, extra), site_status: "owned" as const, site_url: site.url };
+    }
     evidence.push({ kind: "Leitura do site", observed: "A leitura automática do site não foi concluída: " + site.error + ". Isso não comprova que o site não existe.", url: null, excerpt: null });
-    return { evidence, contacts, suggestion: suggest(site, extra) };
+    return { evidence, contacts, suggestion: suggest(site, extra), site_status: null, site_url: null };
   }
   const f = site.found;
   evidence.push({ kind: "Leitura do site", observed: "O site respondeu HTTP " + site.status + "." + (site.title ? " Título: " + site.title + "." : ""), url: site.url, excerpt: null });
@@ -155,7 +159,7 @@ export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   evidence.push({ kind: "Contatos no site", observed: listed.length ? "Publicado no site: " + listed.join("; ") + "." : "Nenhum contato encontrado no HTML da página inicial e de contato.", url: site.url, excerpt: null });
   const level = opportunity(site.marketing);
   evidence.push({ kind: "Sinais de marketing", observed: "Página inicial: " + explainMarketing(site.marketing) + ". Oportunidade sugerida: " + level + ".", url: site.url, excerpt: null });
-  return { evidence, contacts, suggestion: suggest(site, extra) };
+  return { evidence, contacts, suggestion: suggest(site, extra), site_status: "owned" as const, site_url: site.url };
 }
 export type Payload = ReturnType<typeof enrichmentPayload>;
 export type { ContactRow, EvidenceRow };
