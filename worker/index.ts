@@ -1,7 +1,8 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
-import { googleEnabled, ProviderError, readerEnabled, retryDelay, searchPlaces } from "../src/lib/providers";
+import { braveEnabled, braveWeb, googleEnabled, ProviderError, readerEnabled, retryDelay, searchPlaces, type WebResult } from "../src/lib/providers";
 import { enrichmentPayload, readSite } from "../src/lib/enrichment";
+import { researchLead } from "../src/lib/research";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
@@ -50,11 +51,26 @@ async function run(job:Job){
   }
   await finish(job,"pending","worker_stopped",1);
 }
-type Enrichment={organization_id:string;lead_id:string;lease_token:string;domain:string|null};
+type Enrichment={organization_id:string;lead_id:string;lease_token:string;domain:string|null;name:string;city:string;region:string;phones:string[]};
 async function enrich(item:Enrichment){
   let result:ReturnType<typeof enrichmentPayload>|null=null,error:string|null=null;
-  if(!item.domain)error="no_domain";
-  else try{result=enrichmentPayload(await readSite(item.domain));}catch{error="reader_failed";}
+  if(!item.domain&&!braveEnabled())error="no_domain";
+  else try{
+    const site=item.domain?await readSite(item.domain):null;
+    let quota=false;
+    // cada busca é reservada no banco antes de chamar o Brave; cota esgotada encerra a pesquisa, não a leitura
+    const search=async(q:string):Promise<WebResult[]>=>{
+      if(quota)return [];
+      const reserved=await db.rpc("reserve_enrichment_search",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token});
+      if(reserved.error?.code==="P2005"){quota=true;return [];}
+      if(reserved.error||!reserved.data)throw new Error("reservation");
+      return braveWeb(q,10,process.env.BRAVE_SEARCH_API_KEY!);
+    };
+    const research=braveEnabled()?await researchLead({name:item.name,city:item.city,region:item.region,phones:item.phones??[]},site,{search}):null;
+    result=enrichmentPayload(research?.site??site??{ok:false,error:"sem domínio informado e nenhum site confirmado na pesquisa"},research?.extra);
+    if(research){result.evidence.push(...research.evidence);result.contacts.push(...research.contacts);}
+    if(quota)result.evidence.push({kind:"Pesquisa interrompida",observed:"A cota diária de pesquisas da leitura automática acabou. O que faltou pode ser pedido de novo amanhã.",url:null,excerpt:null});
+  }catch{error="reader_failed";}
   const saved=await db.rpc("finish_enrichment",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_result:result,p_error:error});
   if(saved.error)console.error("Falha ao gravar leitura do site; o lease permite nova tentativa.",saved.error.code);
 }

@@ -114,11 +114,13 @@ export function explainMarketing(m: Marketing, year = new Date().getFullYear()) 
   return parts.join(", ");
 }
 
-export function suggest(site: SiteRead): Suggestion {
+/** Sinais achados fora do site (pesquisa na web, Receita), somados à nota. */
+export type Extra = { instagram?: boolean; cnpj?: boolean };
+export function suggest(site: SiteRead, extra: Extra = {}): Suggestion {
   const f = site.ok ? site.found : null;
   const signals: Record<keyof typeof weights, boolean> = {
-    site_vivo: site.ok, instagram: Boolean(f?.instagram), email: Boolean(f?.emails.length), telefone: Boolean(f?.phones.length),
-    whatsapp: Boolean(f?.whatsapp), cnpj: Boolean(f?.cnpj), linkedin: Boolean(f?.linkedin),
+    site_vivo: site.ok, instagram: Boolean(f?.instagram || extra.instagram), email: Boolean(f?.emails.length), telefone: Boolean(f?.phones.length),
+    whatsapp: Boolean(f?.whatsapp), cnpj: Boolean(f?.cnpj || extra.cnpj), linkedin: Boolean(f?.linkedin),
   };
   const keys = Object.keys(weights) as (keyof typeof weights)[];
   const points = keys.reduce((sum, k) => sum + (signals[k] ? weights[k] : 0), 0);
@@ -130,12 +132,12 @@ export function suggest(site: SiteRead): Suggestion {
 }
 
 /** O que o worker grava: evidências pendentes, contatos não confirmados e a nota sugerida. */
-export function enrichmentPayload(site: SiteRead) {
+export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   const evidence: EvidenceRow[] = [];
   const contacts: ContactRow[] = [];
   if (!site.ok) {
-    evidence.push({ kind: "Leitura do site", observed: "O domínio informado não respondeu à leitura automática: " + site.error + ". Isso não comprova que o site não existe.", url: null, excerpt: null });
-    return { evidence, contacts, suggestion: suggest(site) };
+    evidence.push({ kind: "Leitura do site", observed: "A leitura automática do site não foi concluída: " + site.error + ". Isso não comprova que o site não existe.", url: null, excerpt: null });
+    return { evidence, contacts, suggestion: suggest(site, extra) };
   }
   const f = site.found;
   evidence.push({ kind: "Leitura do site", observed: "O site respondeu HTTP " + site.status + "." + (site.title ? " Título: " + site.title + "." : ""), url: site.url, excerpt: null });
@@ -151,5 +153,7 @@ export function enrichmentPayload(site: SiteRead) {
   evidence.push({ kind: "Contatos no site", observed: listed.length ? "Publicado no site: " + listed.join("; ") + "." : "Nenhum contato encontrado no HTML da página inicial e de contato.", url: site.url, excerpt: null });
   const level = opportunity(site.marketing);
   evidence.push({ kind: "Sinais de marketing", observed: "Página inicial: " + explainMarketing(site.marketing) + ". Oportunidade sugerida: " + level + ".", url: site.url, excerpt: null });
-  return { evidence, contacts, suggestion: suggest(site) };
+  return { evidence, contacts, suggestion: suggest(site, extra) };
 }
+export type Payload = ReturnType<typeof enrichmentPayload>;
+export type { ContactRow, EvidenceRow };

@@ -181,6 +181,15 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     expect((await db.query("select kind,confirmed from public.lead_contacts where lead_id=$1 and source_label='Leitura automática do site'",[leadA])).rows).toEqual([{kind:"email",confirmed:false}]);
     expect(await first("select state,suggestion->>'points' points from public.enrichment_requests where lead_id=$1",[leadA])).toEqual({state:"done",points:"15"});
     expect(await first("select public.request_enrichment($1,$2) n",[orgA,[leadA]])).toEqual({n:1});
+    await role("authenticated",actorB);
+    expect(await first("select public.request_enrichment($1,$2) n",[orgB,[leadB]])).toEqual({n:1});
+    await role("service_role");
+    const next=await first<{lead_id:string;lease_token:string;name:string;phones:string[]}>("select * from public.claim_enrichment()");
+    expect(next).toMatchObject({lead_id:leadA,name:"Empresa Teste A",phones:[]});
+    expect(await first("select public.reserve_enrichment_search($1,$2,$3) ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
+    expect(await first("select public.reserve_enrichment_search($1,$2,gen_random_uuid()) ok",[orgA,leadA])).toEqual({ok:false});
+    await role("postgres");
+    expect(await first("select operation from public.provider_usage where organization_id=$1 and operation='enrich'",[orgA])).toEqual({operation:"enrich"});
   });
   it("isola objetos privados e revoga acesso a novas leituras",async()=>{
     await role("authenticated",actorA);

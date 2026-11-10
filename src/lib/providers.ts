@@ -19,7 +19,7 @@ export function retryAfterSeconds(value:string|null,now=Date.now()) {
 export function retryDelay(attempt:number,retryAfter:number) {
   return Math.min(3600,Math.max(retryAfter,5*2**Math.min(7,Math.max(0,attempt-1))));
 }
-async function jsonRequest<T>(url:string,init:RequestInit,schema:z.ZodType<T>,fetcher=fetch) {
+export async function jsonRequest<T>(url:string,init:RequestInit,schema:z.ZodType<T>,fetcher=fetch) {
   let response:Response;
   try {
     response=await fetcher(url,{...init,cache:"no-store",redirect:"error",signal:AbortSignal.timeout(10000)});
@@ -57,9 +57,13 @@ export async function placeDetails(id:string,key:string) {
     headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":"displayName,formattedAddress,googleMapsUri,websiteUri,businessStatus,attributions"}
   },details);
 }
-const braveResponse=z.object({web:z.object({results:z.array(z.object({title:z.string().max(800),url:z.string().max(2048)})).max(20)}).optional()});
+const braveResponse=z.object({web:z.object({results:z.array(z.object({title:z.string().max(800),url:z.string().max(2048),description:z.string().max(2000).optional()})).max(20)}).optional()});
+export type WebResult={title:string;url:string;description:string};
+export async function braveWeb(query:string,count:number,key:string,fetcher=fetch):Promise<WebResult[]> {
+  const params=new URLSearchParams({q:query.slice(0,360),count:String(count),country:"BR",search_lang:"pt-br",result_filter:"web"});
+  const data=await jsonRequest("https://api.search.brave.com/res/v1/web/search?"+params.toString(),{headers:{"X-Subscription-Token":key,Accept:"application/json"}},braveResponse,fetcher);
+  return (data.web?.results??[]).slice(0,count).flatMap(row=>{const url=publicUrl(row.url);return url?[{title:row.title,url,description:row.description??""}]:[];});
+}
 export async function braveSearch(name:string,city:string,region:string,key:string) {
-  const params=new URLSearchParams({q:[name,city,region,"site oficial"].join(" ").slice(0,360),count:"5",country:"BR",search_lang:"pt-br",result_filter:"web"});
-  const data=await jsonRequest("https://api.search.brave.com/res/v1/web/search?"+params.toString(),{headers:{"X-Subscription-Token":key,Accept:"application/json"}},braveResponse);
-  return (data.web?.results??[]).slice(0,5).flatMap(row=>{const url=publicUrl(row.url);return url?[{title:row.title,url}]:[];});
+  return (await braveWeb([name,city,region,"site oficial"].join(" "),5,key)).map(({title,url})=>({title,url}));
 }

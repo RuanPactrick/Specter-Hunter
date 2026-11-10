@@ -33,11 +33,13 @@ export async function requestEnrichmentAll() {
   const {db,org}=await context();
   const back="/app/oportunidades";
   if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
-  const {data:rows,error:listError}=await db.from("leads").select("id").eq("organization_id",org.id).not("domain","is",null).neq("stage","blocked").order("updated_at",{ascending:false}).limit(50);
+  let list=db.from("leads").select("id").eq("organization_id",org.id).neq("stage","blocked");
+  if(!braveEnabled())list=list.not("domain","is",null);   // sem pesquisa, só quem tem domínio tem o que ler
+  const {data:rows,error:listError}=await list.order("updated_at",{ascending:false}).limit(50);
   saveError(back,listError);
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:(rows??[]).map(r=>r.id)});
   saveError(back,error);
-  message(back,data?data+" leads com domínio entraram na fila de leitura do site.":"Nenhum lead novo para ler: sem domínio ou já na fila.",Boolean(data));
+  message(back,data?data+" leads entraram na fila de leitura do site.":"Nenhum lead novo para ler: sem domínio ou já na fila.",Boolean(data));
 }
 export async function cancelResearch(id:string) {
   const {db,org}=await context();

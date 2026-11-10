@@ -6,6 +6,7 @@ import { context } from "@/lib/auth";
 import { leadPath, loadAssessment, loadEvidence } from "@/lib/data";
 import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveScore } from "@/lib/lead-actions";
 import { requestEnrichment } from "@/lib/research-actions";
+import { braveEnabled } from "@/lib/providers";
 import type { Suggestion } from "@/lib/enrichment";
 import { criteria, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
 export const confirmed = (e:Evidence)=>e.review==="confirmed"||e.review==="corrected";
@@ -35,8 +36,8 @@ function SiteReading({lead,row}:{lead:Lead;row:EnrichmentRow|null}) {
       ...(row.suggestion?[["Nota sugerida",row.suggestion.points+" de "+row.suggestion.maximum] as [string,string],["Oportunidade sugerida",row.suggestion.opportunity??"—"] as [string,string]]:[]),
       ...(row.error_code?[["Erro",row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
     {row?.suggestion&&<p className="meta">{row.suggestion.rationale}</p>}
-    <p className="muted">O worker lê o domínio informado e grava evidências e contatos como pendentes. A nota é uma sugestão e não entra no índice comercial até você revisar.</p>
-    {lead.domain?<form action={requestEnrichment.bind(null,lead.id)}><Submit style="small">{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio do lead para ler o site.</Notice>}
+    <p className="muted">O worker lê o domínio informado{braveEnabled()?", pesquisa na web o site, o Instagram e o CNPJ que faltarem,":""} e grava evidências e contatos como pendentes. A nota é uma sugestão e não entra no índice comercial até você revisar.</p>
+    {lead.domain||braveEnabled()?<form action={requestEnrichment.bind(null,lead.id)}><Submit style="small">{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio do lead para ler o site.</Notice>}
   </div></Panel>;
 }
 export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<string,string>;owner:boolean}) {

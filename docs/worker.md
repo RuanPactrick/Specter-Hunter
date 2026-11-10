@@ -16,3 +16,5 @@ A identidade do usuário é verificada ao enfileirar ou cancelar. As funções d
 ## Leitura automática do site
 
 Com **ENABLE_OFFICIAL_PAGE_READING=true** no processo do worker, quando não há pesquisa na fila ele atende os pedidos de **Ler o site** (aba Presença digital do lead) e **Ler sites dos leads** (Oportunidades). Cada pedido tem lease de 120 segundos e até 3 tentativas. Um site fora do ar vira evidência, não falha. Lead bloqueado no meio do caminho é descartado sem gravar nada.
+
+Com **ENABLE_BRAVE_SEARCH=true** e **BRAVE_SEARCH_API_KEY** também no processo do worker, a leitura pesquisa na web o site, o Instagram e o CNPJ que faltarem, e lead sem domínio também pode ser lido. Cada busca é reservada no banco antes da chamada. Quando a cota acaba, o lead é gravado com o que já foi achado e uma evidência avisando.
