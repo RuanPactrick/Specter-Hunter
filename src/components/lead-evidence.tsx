@@ -1,16 +1,11 @@
-import Link from "next/link";
-import { ScanSearch } from "lucide-react";
 import { ButtonLink, Empty, Field, Notice, Pairs, Panel, SafeLink, Select, SiteTag, Tag } from "./ui";
 import { Submit } from "./submit";
-import { Refresh } from "./refresh";
 import { MoveForm } from "./move-form";
 import { context } from "@/lib/auth";
-import { leadPath, loadAssessment, loadEvidence } from "@/lib/data";
+import { leadPath, loadAssessment, loadContacts, loadEvidence } from "@/lib/data";
+import { Dossier, type Reading } from "./lead-dossier";
 import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveScore } from "@/lib/lead-actions";
-import { requestEnrichment } from "@/lib/research-actions";
-import { searchEnabled } from "@/lib/providers";
-import type { Suggestion } from "@/lib/enrichment";
-import { criteria, formatDate, readingErrors, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
+import { criteria, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
 export const confirmed = (e:Evidence)=>e.review==="confirmed"||e.review==="corrected";
 export function evidenceOptions(items:Evidence[]) {
   return Object.fromEntries(items.map(e=>[e.id,e.kind+" · "+e.source_label+" · "+formatDate(e.consulted_on)]));
@@ -22,41 +17,32 @@ async function latestSite(id:string) {
   if(error) throw new Error("Falha ao ler a avaliação");
   return data as SiteAssessment|null;
 }
-type EnrichmentRow={state:"pending"|"running"|"done"|"failed";step:string|null;error_code:string|null;suggestion:Suggestion|null;finished_at:string|null};
-const enrichmentStates={pending:"Na fila: o robô começa em até 5 minutos",running:"Lendo agora",done:"Concluída",failed:"Falhou"} as const;
+type EnrichmentRow=Reading;
 async function latestEnrichment(id:string) {
   const {db,org}=await context();
   const {data,error}=await db.from("enrichment_requests").select("state,step,error_code,suggestion,finished_at").eq("organization_id",org.id).eq("lead_id",id).maybeSingle();
   if(error) throw new Error("Falha ao ler a leitura do site");
   return data as EnrichmentRow|null;
 }
-function SiteReading({lead,row}:{lead:Lead;row:EnrichmentRow|null}) {
-  const busy=row?.state==="pending"||row?.state==="running";
-  return <Panel title="Leitura automática do site"><div className="pad stack"><Refresh active={busy}/>
-    {row?<Pairs items={[["Situação",<Tag key="s" tone={row.state==="failed"?"error":row.state==="done"?"success":""}>{enrichmentStates[row.state]}</Tag>],
-      ...(row.state==="running"?[["Etapa atual",row.step??"Começando"] as [string,string]]:[["Concluída em",formatDate(row.finished_at)] as [string,string]]),
-      ...(row.suggestion?[["Nota sugerida",row.suggestion.points+" de "+row.suggestion.maximum] as [string,string],["Oportunidade sugerida",row.suggestion.opportunity??"—"] as [string,string]]:[]),
-      ...(row.error_code?[["Motivo da falha",readingErrors[row.error_code]??row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
-    {row?.suggestion&&<p className="meta">{row.suggestion.rationale}</p>}
-    <p className="muted">Lê o site{searchEnabled()?", procura na web o site, o Instagram e o CNPJ que faltarem,":""} e traz contatos e evidências para você revisar. A nota é só uma sugestão.</p>
-    {lead.domain||searchEnabled()?<form action={requestEnrichment.bind(null,lead.id)}><Submit style={row?"":"primary"}><ScanSearch size={16} aria-hidden="true"/>{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio da empresa para ler o site.</Notice>}
-  </div></Panel>;
-}
 export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<string,string>;owner:boolean}) {
-  const [{org},evidence,items,latest]=await Promise.all([context(),loadEvidence(lead.id),loadAssessment(lead.id),latestSite(lead.id)]);
+  const [{org},evidence,items,channels,reading]=await Promise.all([context(),loadEvidence(lead.id),loadAssessment(lead.id),loadContacts(lead.id),latestEnrichment(lead.id)]);
   const verified=evidence.filter(confirmed);
   const index=score(items,new Set(verified.map(e=>e.id)));
-  const observation=latest?evidence.find(e=>e.id===latest.evidence_id):undefined;
   const age=(Date.parse(today())-Date.parse(lead.consulted_on))/86400000;
   const notes=evidence.filter(e=>e.review==="pending"||e.review==="conflict"||e.review==="inconclusive");
   return <>{age>org.retention_days&&<Notice tone="warning">A consulta está fora do intervalo de revisão da organização. Revise a fonte antes de reutilizar os dados.</Notice>}
+  <Dossier lead={lead} evidence={evidence} channels={channels} reading={reading}/>
   <div className="grid-two"><div className="stack">
-    <Panel title="Por que revisar esta oportunidade"><div className="pad stack">
-    <div><h3>Fatos observados</h3>{verified.length?<ul className="list-disc pl-5 mt-2">{verified.slice(0,5).map(e=><li key={e.id}>{e.observed} <Link href={leadPath(lead.id,"evidencias")} className="meta">{e.source_label}</Link></li>)}</ul>:<p className="muted">As informações cadastradas aguardam revisão.</p>}</div>
-    <div><h3>Inferências comerciais</h3><p>{observation&&latest?.inference?latest.inference:"Nenhuma inferência registrada com evidência disponível."}</p></div>
-    <div><h3>Pendências</h3><p>{latest?.pending|| (notes.length ? notes.length+" evidência(s) precisam de revisão." : "Sem pendência registrada.")}</p></div>
+    <Panel title="Próximo passo" description="Mude a etapa da negociação ou crie uma tarefa para não esquecer."><div className="pad stack"><MoveForm lead={lead} owner={owner} origin="lead"/>
+      <details className="disclosure"><summary>Criar tarefa</summary><form action={createTask.bind(null,lead.id)} className="inner stack">
+        <Field label="Título da tarefa"><input name="title" defaultValue={lead.next_action} required maxLength={180}/></Field>
+        <Field label="Tipo"><Select name="kind" options={taskKinds}/></Field>
+        <Field label="Prazo"><input type="date" name="due" defaultValue={today()} required/></Field>
+        <Field label="Responsável"><Select name="assignee_id" options={owners} empty="Minha responsabilidade"/></Field>
+        <Field label="Observação"><textarea name="note" maxLength={1500}/></Field><Submit>Criar tarefa</Submit>
+      </form></details>
     </div></Panel>
-    <Panel title="Dados comerciais"><form className="pad stack" action={editLead.bind(null,lead.id)}><div className="fields">
+    <Panel title="Dados da empresa"><form className="pad stack" action={editLead.bind(null,lead.id)}><div className="fields">
       <Field label="Segmento"><input name="sector" required maxLength={100} defaultValue={lead.sector}/></Field>
       <Field label="Bairro"><input name="district" maxLength={100} defaultValue={lead.district}/></Field>
       <Field label="Endereço comercial" full><input name="address" maxLength={250} defaultValue={lead.address}/></Field>
@@ -68,7 +54,7 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
       <Field label="Observações" full><textarea name="notes" maxLength={2500} defaultValue={lead.notes}/></Field>
     </div><Submit>Salvar dados comerciais</Submit></form></Panel>
   </div><div className="stack">
-    <Panel title="Resumo da avaliação"><div className="pad stack"><Pairs items={[
+    <Panel title="Pontuação revisada" description="Calculada só com o que você marcou como confere. A nota do robô acima é uma sugestão."><div className="pad stack"><Pairs items={[
       ["Presença digital",<SiteTag status={lead.website_status} key="site"/>],
       ["Índice observado",index.maximum?index.observed+" / "+index.maximum:"Não avaliado"],["Cobertura",index.coverage+"%"],
       ["Confiança",verified.length?(notes.length?"Revisão pendente":"Evidências suficientes"):"Dados insuficientes"],
@@ -83,15 +69,6 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
       <Field label="Justificativa"><textarea name="rationale" required maxLength={1000}/></Field><Submit>Salvar critério</Submit>
       </form>:<ButtonLink href={leadPath(lead.id,"evidencias")}>Revisar evidências</ButtonLink>}
     </div></details></div></Panel>
-    <Panel title="Ações do lead"><div className="pad stack"><MoveForm lead={lead} owner={owner} origin="lead"/>
-      <details className="disclosure"><summary>Criar tarefa</summary><form action={createTask.bind(null,lead.id)} className="inner stack">
-        <Field label="Título da tarefa"><input name="title" defaultValue={lead.next_action} required maxLength={180}/></Field>
-        <Field label="Tipo"><Select name="kind" options={taskKinds}/></Field>
-        <Field label="Prazo"><input type="date" name="due" defaultValue={today()} required/></Field>
-        <Field label="Responsável"><Select name="assignee_id" options={owners} empty="Minha responsabilidade"/></Field>
-        <Field label="Observação"><textarea name="note" maxLength={1500}/></Field><Submit>Criar tarefa</Submit>
-      </form></details>
-    </div></Panel>
   </div></div></>;
 }
 export async function EvidenceTab({lead}:{lead:Lead}) {
@@ -124,9 +101,9 @@ export async function EvidenceTab({lead}:{lead:Lead}) {
   </form></Panel></div>;
 }
 export async function PresenceTab({lead}:{lead:Lead}) {
-  const [items,latest,reading]=await Promise.all([loadEvidence(lead.id),latestSite(lead.id),latestEnrichment(lead.id)]);
+  const [items,latest]=await Promise.all([loadEvidence(lead.id),latestSite(lead.id)]);
   const linked=latest?items.find(item=>item.id===latest.evidence_id):undefined;
-  return <div className="grid-two"><div className="stack"><SiteReading lead={lead} row={reading}/><Panel title="Situação do site"><div className="pad stack"><Pairs items={[
+  return <div className="grid-two"><div className="stack"><Panel title="Situação do site"><div className="pad stack"><Pairs items={[
   ["Classificação",<SiteTag status={lead.website_status} key="status"/>],["Domínio informado",lead.domain?<code key="domain">{lead.domain}</code>:"A confirmar"],
   ["Data da avaliação",formatDate(latest?.created_at??null)],["Performance","Não avaliado"]
   ]}/><Notice tone="warning">Não localizar um site nas consultas realizadas não comprova sua inexistência. Confirme o vínculo com fonte oficial ou comercial.</Notice></div></Panel>

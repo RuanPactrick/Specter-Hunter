@@ -49,7 +49,7 @@ export function ReadingFeed() {
       {waiting.map((i, n) => <li key={i.id} className="wait"><Clock size={16} aria-hidden="true" />
         <div><strong>{i.name}</strong><span>{n === 0 && running.length ? "Próxima da fila" : (n + 1) + "ª na fila"}</span></div></li>)}
       {ended.map(i => <li key={i.id} className={i.state}>{i.state === "done" ? <CircleCheck size={16} aria-hidden="true" /> : <CircleX size={16} aria-hidden="true" />}
-        <div><Link href={"/app/oportunidades/" + i.id + "?aba=presenca"}><strong>{i.state === "done" ? "Terminou" : "Falhou"}: {i.name}</strong></Link>
+        <div><Link href={"/app/oportunidades/" + i.id}><strong>{i.state === "done" ? "Terminou" : "Falhou"}: {i.name}</strong></Link>
           <span>{time(i.at)} · {i.state === "done"
             ? [i.points !== null && "nota sugerida " + i.points + "/" + i.maximum, i.site ? "site no ar" : "site não lido", i.contacts + (i.contacts === 1 ? " contato novo" : " contatos novos")].filter(Boolean).join(" · ")
             : i.error ?? "erro desconhecido"}</span></div></li>)}

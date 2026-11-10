@@ -97,7 +97,7 @@ export async function readSite(domain: string, read = readPublicPage): Promise<S
 
 // Pesos do kit, só os sinais que o site mostra. Reputação e endereço vêm do Maps, que aqui não é guardado.
 export const weights = { site_vivo: 25, instagram: 15, email: 15, telefone: 10, whatsapp: 10, cnpj: 5, linkedin: 5 } as const;
-const labels: Record<keyof typeof weights, string> = { site_vivo: "site no ar", instagram: "Instagram", email: "e-mail", telefone: "telefone", whatsapp: "WhatsApp", cnpj: "CNPJ", linkedin: "LinkedIn" };
+export const labels: Record<keyof typeof weights, string> = { site_vivo: "site no ar", instagram: "Instagram", email: "e-mail", telefone: "telefone", whatsapp: "WhatsApp", cnpj: "CNPJ", linkedin: "LinkedIn" };
 
 export function opportunity(m: Marketing | null): Suggestion["opportunity"] {
   if (!m) return null;

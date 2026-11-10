@@ -1,7 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { Agent, fetch } from "undici";
 import ipaddr from "ipaddr.js";
-import { publicUrl } from "./domain";
+import { decodeEntities, publicUrl } from "./domain";
 
 // páginas maiores são lidas até o limite e cortadas, não recusadas (rodapé com contatos costuma vir no fim)
 const limits={bytes:2*1024*1024,redirects:3,timeout:10_000};
@@ -61,7 +61,7 @@ async function readBody(response:Awaited<ReturnType<typeof fetch>>) {
 }
 export function pageTitle(html:string|null) {
   const title=html?.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title\s*>/i)?.[1];
-  return title?.replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim().slice(0,240)||null;
+  return title?decodeEntities(title.replace(/<[^>]*>/g,"")).replace(/\s+/g," ").trim().slice(0,240)||null:null;
 }
 export async function inspectOfficial(input:string) {
   const page=await readPublicPage(input,"SpecterHunter/0.1 (manual website availability check)");

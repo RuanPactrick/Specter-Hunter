@@ -44,7 +44,7 @@ export async function editLead(id:string,data:FormData) {
   message(path,"Dados comerciais atualizados.",true);
 }
 export async function createEvidence(id:string,data:FormData) {
-  const path=leadPath(id,"evidencias");
+  const path=leadPath(id,"fontes");
   await loadLead(id);
   const { db,org }=await context();
   const fields=parse(z.object({kind:text(80),observed:text(2000),url:optionalUrl,source_label:text(200),consulted_on:z.iso.date(),method:text(180),
@@ -54,7 +54,8 @@ export async function createEvidence(id:string,data:FormData) {
   message(path,"Evidência adicionada para revisão.",true);
 }
 export async function reviewEvidence(id:string,evidence:string,data:FormData) {
-  const path=leadPath(id,"evidencias");
+  // a revisão rápida do resumo volta para o resumo
+  const path=data.get("back")==="resumo"?leadPath(id):leadPath(id,"fontes");
   if(!uuid.safeParse(evidence).success) message(path,"Evidência indisponível.");
   await loadLead(id);
   const { db,org }=await context();
@@ -66,7 +67,7 @@ export async function reviewEvidence(id:string,evidence:string,data:FormData) {
   message(path,"Revisão registrada.",true);
 }
 export async function assessSite(id:string,data:FormData) {
-  const path=leadPath(id,"presenca");
+  const path=leadPath(id,"fontes");
   await loadLead(id);
   const { db,org }=await context();
   const f=parse(z.object({status:z.enum(Object.keys(sites) as [keyof typeof sites]),evidence_id:uuid,website:optionalUrl,
@@ -103,8 +104,8 @@ export async function addContact(id:string,data:FormData) {
   saveError(path,error);
   message(path,"Canal comercial cadastrado.",true);
 }
-export async function confirmContact(id:string,contactId:string,confirmed:boolean) {
-  const path=leadPath(id,"contatos");
+export async function confirmContact(id:string,contactId:string,confirmed:boolean,form?:FormData) {
+  const path=leadPath(id,form?.get("back")==="abordagem"?"abordagem":"contatos");
   await loadLead(id);
   const { db,org }=await context();
   const { data,error }=await db.from("lead_contacts").update({confirmed}).eq("organization_id",org.id).eq("lead_id",id).eq("id",contactId).select("id").maybeSingle();

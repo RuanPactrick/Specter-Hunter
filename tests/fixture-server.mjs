@@ -64,6 +64,20 @@ createServer((request,response)=>{
       rows=queue.map(([lead_id,,state,step,at,suggestion])=>({lead_id,state,step,error_code:state==="failed"?"lease_exhausted":null,suggestion,requested_at:ago(8),finished_at:state==="done"||state==="failed"?at:null}));
     if(table==="leads"&&select==="id,name")rows=queue.map(([id,name])=>({id,name}));
     if(table==="lead_contacts"&&select==="lead_id")rows=[1,2,3,4].map(()=>({lead_id:queue[0][0]}));
+    // ficha da empresa com o que a leitura costuma achar
+    const ev=(n,kind,observed,url,review="pending")=>({id:"f0000000-0000-4000-8000-00000000010"+n,kind,observed,url,provider:"site_reader",source_label:"Leitura automática do site",consulted_on:"2026-11-10",method:"Leitura automática",excerpt:null,confidence:"pendente",review,review_note:null,expires_at:null,export_allowed:false});
+    if(table==="evidence_items")rows=[ev(1,"Leitura do site","O site respondeu HTTP 200. Título: Smart Odonto &#8211; Clínica Odontológica em São Luís.","https://empresa-layout.example/","confirmed"),
+      ev(2,"Perfil do Instagram","@smartodontoslz: 21 mil seguidores, 1120 posts. 7 posts nos últimos 30 dias. Média de 13 curtidas por post (0,1% de engajamento).","https://www.instagram.com/smartodontoslz"),
+      ev(3,"Google Maps","Encontrada no Google Maps como Clínica odontológica: nota 4,9 com 173 avaliações; Shopping da Ilha, Cohama, São Luís - MA.","https://www.google.com/maps/search/?api=1&query=x"),
+      ev(4,"Cadastro na Receita","36.725.708/0001-57 (publicado no site); razão social CALISTO ODONTOLOGIA LTDA; situação ATIVA; aberta em 2020; porte EMPRESA DE PEQUENO PORTE.","https://brasilapi.com.br/api/cnpj/v1/36725708000157"),
+      ev(5,"Anúncios na Meta","Nenhum anúncio ativo com o nome \"Smart Odonto\" na Biblioteca da Meta.","https://www.facebook.com/ads/library/?q=x"),
+      ev(6,"Sinais de marketing","Página inicial: tem pixel de anúncio (Meta), rodapé parado em 2021, com botão de WhatsApp. Oportunidade sugerida: baixa.","https://empresa-layout.example/")];
+    const ct=(n,kind,value,normalized,source_label,confirmed=false)=>({id:"f0000000-0000-4000-8000-00000000020"+n,kind,value,normalized,source_label,consulted_on:"2026-11-10",confirmed});
+    if(table==="lead_contacts"&&select.startsWith("id,kind"))rows=[ct(1,"whatsapp","+55 98 98220 0011","+5598982200011","Leitura automática do site"),ct(2,"phone","+55 98 98246 7800","+5598982467800","Google Maps via Apify"),
+      ct(3,"phone","+55 98 3311 8254","+559833118254","Leitura automática do site",true),ct(4,"email","atendimento@smartodontoslz.com.br","atendimento@smartodontoslz.com.br","Leitura automática do site"),
+      ct(5,"instagram","@smartodontoslz","smartodontoslz","Leitura automática do site"),ct(6,"maps","https://www.google.com/maps/search/?api=1&query=x","x","Google Maps via Apify")];
+    if(table==="enrichment_requests"&&select.startsWith("state,step"))rows=[{state:"done",step:null,error_code:null,finished_at:ago(30),suggestion:{points:80,maximum:85,opportunity:"baixa",rationale:"",signals:{site_vivo:true,instagram:true,email:true,telefone:true,whatsapp:true,cnpj:true,linkedin:false}}}];
+    if(table==="audit_events")rows=[{id:"a1",event:"lead.enriched",detail:{source:"site_reader"},created_at:ago(30)},{id:"a2",event:"evidence_items.insert",detail:{},created_at:ago(30)},{id:"a3",event:"lead_contacts.insert",detail:{},created_at:ago(30)},{id:"a4",event:"lead.created",detail:{source:"maps"},created_at:ago(200)}];
   }
   if(request.method==="HEAD")return write(response,200,null,{"Content-Range":rows.length?"0-0/1":"*/0"});
   if(select.includes("organizations")&&table!=="organization_members")return write(response,400,{message:"Unexpected fixture relation"});

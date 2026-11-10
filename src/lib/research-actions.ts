@@ -22,7 +22,7 @@ export async function startResearch(data:FormData) {
 }
 export async function requestEnrichment(id:string) {
   const {db,org}=await context();
-  const back="/app/oportunidades/"+id+"?aba=presenca";
+  const back="/app/oportunidades/"+id;
   if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
   if(!uuid.safeParse(id).success)message(back,"Lead indisponível.");
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:[id]});

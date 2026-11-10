@@ -111,3 +111,17 @@ export function whatsappLink(contact: Contact | undefined, content: string) {
 }
 /** Motivo da falha da leitura automática em palavras do usuário. */
 export const readingErrors:Record<string,string>={no_domain:"sem site e sem pesquisa na web ligada",reader_failed:"erro inesperado durante a leitura",lease_exhausted:"o robô parou 3 vezes no meio da leitura",blocked:"empresa marcada como não contatar"};
+/** Entidades HTML que sobram em títulos de site (ex.: &#8211;). */
+export function decodeEntities(text: string) {
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", ndash: "–", mdash: "—" };
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, code: string) => code[0] === "#"
+    ? String.fromCodePoint(Number(code[1].toLowerCase() === "x" ? "0" + code.slice(1) : code.slice(1)) || 32) : named[code.toLowerCase()] ?? all);
+}
+/** Link de ação de um canal: abrir conversa, ligar, escrever, abrir perfil. */
+export function contactHref(kind: Contact["kind"], normalized: string, value: string) {
+  if (kind === "whatsapp" && /^\+[1-9]\d{7,14}$/.test(normalized)) return "https://wa.me/" + normalized.slice(1);
+  if (kind === "phone" && /^\+[1-9]\d{7,14}$/.test(normalized)) return "tel:" + normalized;
+  if (kind === "email" && normalized.includes("@")) return "mailto:" + normalized;
+  if (kind === "instagram" && /^[A-Za-z0-9_.]{1,30}$/.test(normalized)) return "https://www.instagram.com/" + normalized;
+  return /^https?:\/\//i.test(value) ? value : null;
+}

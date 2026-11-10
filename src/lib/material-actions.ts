@@ -6,7 +6,7 @@ import { leadPath, loadLead } from "./data";
 import { assetKinds, fileType, maxAssetBytes } from "./files";
 import { message, optionalText, parse, saveError, text } from "./forms";
 export async function uploadMaterial(id:string,data:FormData) {
-  const path=leadPath(id,"materiais");
+  const path=leadPath(id,"previa");
   await loadLead(id);
   const {db,org}=await context();
   const f=parse(z.object({kind:z.enum(Object.keys(assetKinds) as [keyof typeof assetKinds]),origin:text(240),holder:text(180),
@@ -29,7 +29,7 @@ export async function uploadMaterial(id:string,data:FormData) {
   message(path,"Material e autorização registrados.",true);
 }
 export async function revokeMaterial(id:string,assetId:string,data:FormData){
-  const path=leadPath(id,"materiais");
+  const path=leadPath(id,"previa");
   await loadLead(id);
   const {db,org}=await context();
   if(!z.uuid().safeParse(assetId).success||data.get("confirm")!=="on")message(path,"Confirme a revogação.");
