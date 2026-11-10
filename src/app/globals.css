@@ -27,8 +27,7 @@ small,.meta{font-size:12px;color:var(--color-text-secondary)}
 .brand{display:inline-flex;gap:8px;align-items:center;color:inherit;line-height:1.2;font-weight:800;font-size:16px;letter-spacing:-.027em;white-space:nowrap}
 .brand:hover{text-decoration:none}
 .brand img{display:block;width:165px;height:auto}
-.org{border:1px solid #344139;border-radius:8px;padding:9px;display:flex;align-items:center;gap:10px}
-.org div,.profile div{min-width:0;overflow-wrap:anywhere}
+.profile div{min-width:0;overflow-wrap:anywhere}
 .sidebar .meta{color:#aec0b4}
 .nav-label{margin:0 9px 5px;color:#aec0b4;font-weight:700;font-size:12px}
 .nav-item{display:flex;align-items:center;gap:10px;min-height:44px;color:#cad7cf;padding:0 10px;border-radius:8px;font-weight:700}

@@ -15,6 +15,8 @@ test("carteira e detalhe respondem no mobile, tablet e desktop com Auth e REST s
   await page.getByLabel("Senha",{exact:true}).fill("Fixture-test-password");
   await page.getByRole("button",{name:"Entrar",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Visão geral",exact:true})).toBeVisible();
+  await expect(page.locator(".sidebar .org")).toHaveCount(0);
+  await expect(page.getByRole("link",{name:"Configurações",exact:true})).toHaveAttribute("href","/app/configuracoes");
   await expect(page.getByText("Encontre empresas, registre evidências e organize a próxima abordagem.")).toBeVisible();
   await expect(page.getByRole("heading",{name:"Da busca à abordagem"})).toBeVisible();
   await expect(page.getByRole("list").getByText(/Registre evidências\./)).toBeVisible();

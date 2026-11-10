@@ -9,7 +9,6 @@ export default async function Workspace({ children }:{children:React.ReactNode})
   const { org,email,role }=await context();
   return <div className="app-shell"><aside className="sidebar">
     <Link href="/app" aria-label="Specter Hunter, início"><Brand/></Link>
-    <Link className="org" href="/app/configuracoes"><Avatar name={org.name}/><div><strong>{org.name}</strong><p className="meta">Espaço de trabalho</p></div></Link>
     <DesktopNav/>
     <div className="profile"><Avatar name={org.message_name}/><div><strong>{org.message_name}</strong><p className="meta">{role==="owner"?"Proprietário":"Membro"}</p></div><form action={logout}><button className="btn icon small" type="submit" aria-label="Sair"><LogOut size={16} aria-hidden="true"/></button></form></div>
   </aside><div className="min-w-0">
