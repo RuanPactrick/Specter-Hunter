@@ -7,6 +7,9 @@ export const policies={
 } as const;
 export const googleEnabled=()=>process.env.ENABLE_GOOGLE_PLACES==="true"&&Boolean(process.env.GOOGLE_PLACES_API_KEY);
 export const braveEnabled=()=>process.env.ENABLE_BRAVE_SEARCH==="true"&&Boolean(process.env.BRAVE_SEARCH_API_KEY);
+export const apifyEnabled=()=>process.env.ENABLE_APIFY==="true"&&Boolean(process.env.APIFY_TOKEN);
+/** Algum motor de pesquisa na web para a leitura automática: Apify (preferido) ou Brave. */
+export const searchEnabled=()=>apifyEnabled()||braveEnabled();
 export const readerEnabled=()=>process.env.ENABLE_OFFICIAL_PAGE_READING==="true";
 export class ProviderError extends Error {
   constructor(readonly code:string,readonly retriable=false,readonly retryAfter=0){super(code);}
@@ -19,10 +22,10 @@ export function retryAfterSeconds(value:string|null,now=Date.now()) {
 export function retryDelay(attempt:number,retryAfter:number) {
   return Math.min(3600,Math.max(retryAfter,5*2**Math.min(7,Math.max(0,attempt-1))));
 }
-export async function jsonRequest<T>(url:string,init:RequestInit,schema:z.ZodType<T>,fetcher=fetch) {
+export async function jsonRequest<T>(url:string,init:RequestInit,schema:z.ZodType<T>,fetcher=fetch,timeout=10000) {
   let response:Response;
   try {
-    response=await fetcher(url,{...init,cache:"no-store",redirect:"error",signal:AbortSignal.timeout(10000)});
+    response=await fetcher(url,{...init,cache:"no-store",redirect:"error",signal:AbortSignal.timeout(timeout)});
   } catch { throw new ProviderError("network",true); }
   if(!response.ok){
     const retry=retryAfterSeconds(response.headers.get("retry-after"));
@@ -63,6 +66,25 @@ export async function braveWeb(query:string,count:number,key:string,fetcher=fetc
   const params=new URLSearchParams({q:query.slice(0,360),count:String(count),country:"BR",search_lang:"pt-br",result_filter:"web"});
   const data=await jsonRequest("https://api.search.brave.com/res/v1/web/search?"+params.toString(),{headers:{"X-Subscription-Token":key,Accept:"application/json"}},braveResponse,fetcher);
   return (data.web?.results??[]).slice(0,count).flatMap(row=>{const url=publicUrl(row.url);return url?[{title:row.title,url,description:row.description??""}]:[];});
+}
+const apifyPages=z.array(z.object({
+  searchQuery:z.object({term:z.string().max(400)}).partial().optional(),
+  organicResults:z.array(z.object({title:z.string().max(800).nullish(),url:z.string().max(2048).nullish(),description:z.string().max(2000).nullish()})).max(50).default([])
+})).max(60);
+export const searchKey=(q:string)=>q.replace(/\s+/g," ").trim();
+/** Apify · Google Search Scraper: várias buscas numa execução só (cada execução leva ~20 s para subir). */
+export async function apifyGoogle(queries:string[],token:string,fetcher=fetch) {
+  const pages=await jsonRequest("https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items",{
+    method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+    body:JSON.stringify({queries:queries.map(searchKey).join("\n"),countryCode:"br",languageCode:"pt-BR",maxPagesPerQuery:1})
+  },apifyPages,fetcher,90000);
+  const results=new Map<string,WebResult[]>(queries.map(q=>[searchKey(q),[]]));
+  for(const page of pages){
+    const term=searchKey(page.searchQuery?.term??"");
+    if(!results.has(term))continue;
+    results.set(term,page.organicResults.flatMap(row=>{const url=row.url?publicUrl(row.url):null;return url?[{title:row.title??"",url,description:row.description??""}]:[];}).slice(0,10));
+  }
+  return results;
 }
 export async function braveSearch(name:string,city:string,region:string,key:string) {
   return (await braveWeb([name,city,region,"site oficial"].join(" "),5,key)).map(({title,url})=>({title,url}));

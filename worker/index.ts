@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
-import { braveEnabled, braveWeb, googleEnabled, ProviderError, readerEnabled, retryDelay, searchPlaces, type WebResult } from "../src/lib/providers";
+import { apifyEnabled, apifyGoogle, braveWeb, googleEnabled, ProviderError, readerEnabled, retryDelay, searchEnabled, searchKey, searchPlaces, type WebResult } from "../src/lib/providers";
 import { enrichmentPayload, readSite } from "../src/lib/enrichment";
 import { researchLead } from "../src/lib/research";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,22 +54,36 @@ async function run(job:Job){
 type Enrichment={organization_id:string;lead_id:string;lease_token:string;domain:string|null;name:string;city:string;region:string;phones:string[]};
 async function enrich(item:Enrichment){
   let result:ReturnType<typeof enrichmentPayload>|null=null,error:string|null=null;
-  if(!item.domain&&!braveEnabled())error="no_domain";
+  if(!item.domain&&!searchEnabled())error="no_domain";
   else try{
     const site=item.domain?await readSite(item.domain):null;
-    let quota=false;
-    // cada busca é reservada no banco antes de chamar o Brave; cota esgotada encerra a pesquisa, não a leitura
-    const search=async(q:string):Promise<WebResult[]>=>{
-      if(quota)return [];
-      const reserved=await db.rpc("reserve_enrichment_search",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token});
-      if(reserved.error?.code==="P2005"){quota=true;return [];}
+    // cada busca é reservada no banco antes da chamada; cota esgotada ou motor fora encerra a pesquisa, não a leitura
+    let stopped:"quota"|"provider"|null=null;
+    const provider=apifyEnabled()?"apify":"brave";
+    const cache=new Map<string,WebResult[]>();
+    const reserve=async(count:number)=>{
+      const reserved=await db.rpc("reserve_enrichment_search",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_provider:provider,p_count:count});
+      if(reserved.error?.code==="P2005"){stopped="quota";return false;}
       if(reserved.error||!reserved.data)throw new Error("reservation");
-      return braveWeb(q,10,process.env.BRAVE_SEARCH_API_KEY!);
+      return true;
     };
-    const research=braveEnabled()?await researchLead({name:item.name,city:item.city,region:item.region,phones:item.phones??[]},site,{search}):null;
+    const run=async(queries:string[])=>{
+      const fresh=[...new Set(queries.map(searchKey))].filter(q=>!cache.has(q));
+      if(stopped||!fresh.length||!await reserve(fresh.length))return;
+      try{
+        if(provider==="apify")for(const [q,rows] of await apifyGoogle(fresh,process.env.APIFY_TOKEN!))cache.set(q,rows);
+        else for(const q of fresh)cache.set(q,await braveWeb(q,10,process.env.BRAVE_SEARCH_API_KEY!));
+      }catch(cause){
+        if(!(cause instanceof ProviderError))throw cause;
+        stopped="provider";console.error("Pesquisa da leitura indisponível.",cause.code);
+      }
+    };
+    const search=async(q:string)=>{await run([q]);return cache.get(searchKey(q))??[];};
+    const research=searchEnabled()?await researchLead({name:item.name,city:item.city,region:item.region,phones:item.phones??[]},site,{search,prefetch:provider==="apify"?run:undefined}):null;
     result=enrichmentPayload(research?.site??site??{ok:false,error:"sem domínio informado e nenhum site confirmado na pesquisa"},research?.extra);
     if(research){result.evidence.push(...research.evidence);result.contacts.push(...research.contacts);}
-    if(quota)result.evidence.push({kind:"Pesquisa interrompida",observed:"A cota diária de pesquisas da leitura automática acabou. O que faltou pode ser pedido de novo amanhã.",url:null,excerpt:null});
+    const why={quota:"A cota diária de pesquisas da leitura automática acabou.",provider:"O motor de pesquisa ("+provider+") recusou ou não respondeu; confira a chave e o crédito."} as const;
+    if(stopped)result.evidence.push({kind:"Pesquisa interrompida",observed:why[stopped as keyof typeof why]+" O que faltou pode ser pedido de novo depois.",url:null,excerpt:null});
   }catch{error="reader_failed";}
   const saved=await db.rpc("finish_enrichment",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_result:result,p_error:error});
   if(saved.error)console.error("Falha ao gravar leitura do site; o lease permite nova tentativa.",saved.error.code);

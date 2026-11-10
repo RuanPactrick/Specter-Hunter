@@ -186,10 +186,10 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     await role("service_role");
     const next=await first<{lead_id:string;lease_token:string;name:string;phones:string[]}>("select * from public.claim_enrichment()");
     expect(next).toMatchObject({lead_id:leadA,name:"Empresa Teste A",phones:[]});
-    expect(await first("select public.reserve_enrichment_search($1,$2,$3) ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
-    expect(await first("select public.reserve_enrichment_search($1,$2,gen_random_uuid()) ok",[orgA,leadA])).toEqual({ok:false});
+    expect(await first("select public.reserve_enrichment_search($1,$2,$3,'apify',4) ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
+    expect(await first("select public.reserve_enrichment_search($1,$2,gen_random_uuid(),'apify') ok",[orgA,leadA])).toEqual({ok:false});
     await role("postgres");
-    expect(await first("select operation from public.provider_usage where organization_id=$1 and operation='enrich'",[orgA])).toEqual({operation:"enrich"});
+    expect(await first("select count(*)::int n from public.provider_usage where organization_id=$1 and provider='apify' and operation='enrich'",[orgA])).toEqual({n:4});
   });
   it("isola objetos privados e revoga acesso a novas leituras",async()=>{
     await role("authenticated",actorA);

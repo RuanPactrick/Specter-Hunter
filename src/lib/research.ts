@@ -9,7 +9,18 @@ import { jsonRequest, ProviderError, type WebResult } from "./providers";
 export type LeadRef = { name: string; city: string; region: string; phones: string[] };
 export type Receita = { cnpj: string; razao_social: string | null; nome_fantasia: string | null; situacao: string | null; abertura: string | null;
   porte: string | null; atividade: string | null; municipio: string | null; uf: string | null; decisor: string | null };
-type Deps = { search: (q: string) => Promise<WebResult[]>; read?: typeof readSite; receita?: (cnpj: string) => Promise<Receita | null> };
+// prefetch: o motor em lote (Apify) adianta numa execução só as buscas que o lead vai precisar
+type Deps = { search: (q: string) => Promise<WebResult[]>; prefetch?: (queries: string[]) => Promise<void>; read?: typeof readSite; receita?: (cnpj: string) => Promise<Receita | null> };
+
+/** As buscas que o lead vai precisar, sabendo só o que o site já trouxe. Mesmo texto que researchLead usa. */
+export function plannedSearches(lead: LeadRef, site: SiteRead | null) {
+  const where = lead.city + " " + lead.region;
+  const found = site?.ok ? site.found : null;
+  return [lead.name + " " + where,
+    ...(site?.ok ? [] : [lead.name + " " + where + " site oficial"]),
+    ...(found?.instagram ? [] : ["site:instagram.com " + lead.name + " " + lead.city]),
+    ...(found?.cnpj && validCnpj(found.cnpj) ? [] : ["CNPJ " + lead.name + " " + lead.city])];
+}
 
 export const normal = (s: string) => nameKey(s.replace(/<[^>]*>/g, " ")).replace(/[^a-z0-9]+/g, " ").trim();
 const generic = new Set(["clinica", "clinicas", "odontologia", "odontologica", "odonto", "consultorio", "dentista", "dr", "dra", "centro", "studio", "estudio",
@@ -127,6 +138,7 @@ export async function researchLead(lead: LeadRef, site: SiteRead | null, deps: D
   const cache = new Map<string, WebResult[]>();
   const search = async (q: string) => { q = q.replace(/\s+/g, " ").trim(); if (!cache.has(q)) cache.set(q, await deps.search(q)); return cache.get(q)!; };
   const where = lead.city + " " + lead.region;
+  await deps.prefetch?.(plannedSearches(lead, site));
   const base = await search(lead.name + " " + where);
   let confirmed: SiteRead | null = null;
 

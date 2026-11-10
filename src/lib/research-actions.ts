@@ -4,7 +4,7 @@ import { context } from "./auth";
 import { loadLead } from "./data";
 import { nameKey, regions, publicUrl } from "./domain";
 import { message,on,optionalText,parse,saveError,text } from "./forms";
-import { braveEnabled,braveSearch,googleEnabled,placeDetails,ProviderError,readerEnabled } from "./providers";
+import { braveEnabled,braveSearch,googleEnabled,placeDetails,ProviderError,readerEnabled,searchEnabled } from "./providers";
 import { inspectOfficial } from "./reader";
 const path="/app/pesquisa";
 const uuid=z.uuid();
@@ -34,7 +34,7 @@ export async function requestEnrichmentAll() {
   const back="/app/oportunidades";
   if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
   let list=db.from("leads").select("id").eq("organization_id",org.id).neq("stage","blocked");
-  if(!braveEnabled())list=list.not("domain","is",null);   // sem pesquisa, só quem tem domínio tem o que ler
+  if(!searchEnabled())list=list.not("domain","is",null);   // sem pesquisa, só quem tem domínio tem o que ler
   const {data:rows,error:listError}=await list.order("updated_at",{ascending:false}).limit(50);
   saveError(back,listError);
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:(rows??[]).map(r=>r.id)});
