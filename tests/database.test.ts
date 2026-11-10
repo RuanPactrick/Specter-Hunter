@@ -191,6 +191,20 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     await role("postgres");
     expect(await first("select count(*)::int n from public.provider_usage where organization_id=$1 and provider='apify' and operation='enrich'",[orgA])).toEqual({n:4});
   });
+  it("lê em lote só empresas nunca lidas, até a quantidade pedida",async()=>{
+    await role("authenticated",actorA);
+    const batch=(limit:number,needDomain=false)=>first("select public.request_enrichment_batch($1,$2,$3) n",[orgA,limit,needDomain]);
+    const fresh=await create(orgA,"Empresa nunca lida","nova.example");
+    await create(orgA,"Empresa sem site");
+    expect(await batch(1,true)).toEqual({n:1});
+    expect(await first("select state from public.enrichment_requests where lead_id=$1",[fresh])).toEqual({state:"pending"});
+    expect(await batch(50,true)).toEqual({n:0});
+    expect(await batch(50)).toEqual({n:2});
+    expect(await batch(50)).toEqual({n:0});
+    await expect(batch(51)).rejects.toMatchObject({code:"22023"});
+    await role("authenticated",actorB);
+    await expect(first("select public.request_enrichment_batch($1,1,false)",[orgA])).rejects.toMatchObject({code:"42501"});
+  });
   it("isola objetos privados e revoga acesso a novas leituras",async()=>{
     await role("authenticated",actorA);
     const asset=request3,path=[orgA,leadA,asset].join("/");

@@ -29,17 +29,15 @@ export async function requestEnrichment(id:string) {
   saveError(back,error);
   message(back,data?"Leitura do site na fila. O worker grava evidências e contatos para revisão.":"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data));
 }
-export async function requestEnrichmentAll() {
+export async function requestEnrichmentAll(form:FormData) {
   const {db,org}=await context();
   const back="/app/oportunidades";
   if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
-  let list=db.from("leads").select("id").eq("organization_id",org.id).neq("stage","blocked");
-  if(!searchEnabled())list=list.not("domain","is",null);   // sem pesquisa, só quem tem domínio tem o que ler
-  const {data:rows,error:listError}=await list.order("updated_at",{ascending:false}).limit(50);
-  saveError(back,listError);
-  const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:(rows??[]).map(r=>r.id)});
+  const limit=z.coerce.number().int().min(1).max(50).catch(10).parse(form.get("limit")??10);
+  // só empresas nunca lidas; sem pesquisa na web, só quem tem domínio tem o que ler
+  const {data,error}=await db.rpc("request_enrichment_batch",{p_org:org.id,p_limit:limit,p_need_domain:!searchEnabled()});
   saveError(back,error);
-  message(back,data?data+" empresas entraram na fila de leitura do site.":"Nenhuma empresa nova para ler: sem domínio ou já na fila.",Boolean(data));
+  message(back,data?data+" empresas entraram na fila de leitura do site.":"Nenhuma empresa nova para ler: todas já foram lidas ou estão sem domínio.",Boolean(data));
 }
 export async function cancelResearch(id:string) {
   const {db,org}=await context();

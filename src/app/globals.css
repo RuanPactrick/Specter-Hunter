@@ -113,3 +113,5 @@ progress{width:100%;height:9px;accent-color:var(--color-primary)}.steps{list-sty
 .stack.tight{gap:6px;justify-items:start}
 .lead-table td:nth-child(2){min-width:210px}.lead-table time{white-space:nowrap}
 @media(max-width:720px){.table-top .actions{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.table-top .actions form,.table-top .actions .btn{width:100%}.mobile-nav a{letter-spacing:-.02em}}
+.batch-read{display:flex;align-items:center;gap:6px}.batch-read input{width:64px!important;min-height:36px!important;padding:4px 8px!important;text-align:center}
+@media(max-width:720px){.table-top .actions{grid-template-columns:1fr 1fr}.table-top .actions .batch-read{grid-column:1/-1}.batch-read .btn{flex:1}.batch-read input{min-height:44px!important}}

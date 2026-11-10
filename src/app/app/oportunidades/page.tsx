@@ -41,7 +41,9 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
     </form>
     <div className="table-top"><span className="inline"><strong>{total} {total===1?"oportunidade":"oportunidades"}</strong><Link href="/app/oportunidades">Limpar filtros</Link></span>
       <div className="actions">
-        <form action={requestEnrichmentAll}><Submit style="small"><ScanSearch size={15} aria-hidden="true"/>Ler sites</Submit></form>
+        <form action={requestEnrichmentAll} className="batch-read" title="Só empresas que ainda não foram lidas. Cada uma usa até 6 execuções do Apify.">
+          <input type="number" name="limit" min={1} max={50} defaultValue={10} aria-label="Quantas empresas ler" inputMode="numeric"/>
+          <Submit style="small"><ScanSearch size={15} aria-hidden="true"/>Ler sites</Submit></form>
         <ButtonLink href="/app/oportunidades/importar" style="small"><Upload size={15} aria-hidden="true"/>Importar</ButtonLink>
         <a className="btn small" href={"/api/exportar?"+query.toString()}><Download size={15} aria-hidden="true"/>Exportar</a>
       </div></div>
