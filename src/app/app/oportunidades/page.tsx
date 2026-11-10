@@ -5,6 +5,8 @@ import { context } from "@/lib/auth";
 import { pageSize, queryLeads } from "@/lib/data";
 import { sites, stages } from "@/lib/domain";
 import { LeadTable } from "@/components/lead-table";
+import { Submit } from "@/components/submit";
+import { requestEnrichmentAll } from "@/lib/research-actions";
 export const metadata={title:"Oportunidades"};
 export default async function Opportunities({ searchParams }:{searchParams:Promise<Search>}) {
   const params=await searchParams;
@@ -20,6 +22,7 @@ export default async function Opportunities({ searchParams }:{searchParams:Promi
   return <><Heading group="Carteira de prospecção" title="Oportunidades" description="Revise evidências e decida o próximo passo de cada empresa.">
     <ButtonLink href="/app/oportunidades/importar"><Upload size={16} aria-hidden="true"/>Importar</ButtonLink>
     <a className="btn" href={"/api/exportar?"+query.toString()}><Download size={16} aria-hidden="true"/>Exportar</a>
+    <form action={requestEnrichmentAll}><Submit style="">Ler sites dos leads</Submit></form>
     <ButtonLink href="/app/oportunidades/novo" style="primary"><Plus size={16} aria-hidden="true"/>Cadastrar empresa</ButtonLink></Heading>
     <Flash params={params}/><section className="panel">
     <form action="/app/oportunidades" className="filters" aria-label="Filtrar oportunidades"><div className="filter-grid">

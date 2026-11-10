@@ -5,6 +5,8 @@ import { MoveForm } from "./move-form";
 import { context } from "@/lib/auth";
 import { leadPath, loadAssessment, loadEvidence } from "@/lib/data";
 import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveScore } from "@/lib/lead-actions";
+import { requestEnrichment } from "@/lib/research-actions";
+import type { Suggestion } from "@/lib/enrichment";
 import { criteria, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
 export const confirmed = (e:Evidence)=>e.review==="confirmed"||e.review==="corrected";
 export function evidenceOptions(items:Evidence[]) {
@@ -16,6 +18,26 @@ async function latestSite(id:string) {
   const {data,error}=await db.from("website_assessments").select("status,domain,evidence_id,method,inference,pending,created_at").eq("organization_id",org.id).eq("lead_id",id).order("created_at",{ascending:false}).limit(1).maybeSingle();
   if(error) throw new Error("Falha ao ler a avaliação");
   return data as SiteAssessment|null;
+}
+type EnrichmentRow={state:"pending"|"running"|"done"|"failed";error_code:string|null;suggestion:Suggestion|null;finished_at:string|null};
+const enrichmentStates={pending:"Na fila",running:"Lendo o site",done:"Concluída",failed:"Falhou"} as const;
+async function latestEnrichment(id:string) {
+  const {db,org}=await context();
+  const {data,error}=await db.from("enrichment_requests").select("state,error_code,suggestion,finished_at").eq("organization_id",org.id).eq("lead_id",id).maybeSingle();
+  if(error) throw new Error("Falha ao ler a leitura do site");
+  return data as EnrichmentRow|null;
+}
+function SiteReading({lead,row}:{lead:Lead;row:EnrichmentRow|null}) {
+  const busy=row?.state==="pending"||row?.state==="running";
+  return <Panel title="Leitura automática do site"><div className="pad stack">
+    {row?<Pairs items={[["Situação",<Tag key="s" tone={row.state==="failed"?"error":row.state==="done"?"success":""}>{enrichmentStates[row.state]}</Tag>],
+      ["Concluída em",formatDate(row.finished_at)],
+      ...(row.suggestion?[["Nota sugerida",row.suggestion.points+" de "+row.suggestion.maximum] as [string,string],["Oportunidade sugerida",row.suggestion.opportunity??"—"] as [string,string]]:[]),
+      ...(row.error_code?[["Erro",row.error_code] as [string,string]]:[])]}/>:<p className="muted">O site ainda não foi lido.</p>}
+    {row?.suggestion&&<p className="meta">{row.suggestion.rationale}</p>}
+    <p className="muted">O worker lê o domínio informado e grava evidências e contatos como pendentes. A nota é uma sugestão e não entra no índice comercial até você revisar.</p>
+    {lead.domain?<form action={requestEnrichment.bind(null,lead.id)}><Submit style="small">{busy?"Leitura em andamento":row?"Ler o site de novo":"Ler o site"}</Submit></form>:<Notice tone="warning">Informe o domínio do lead para ler o site.</Notice>}
+  </div></Panel>;
 }
 export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<string,string>;owner:boolean}) {
   const [{org},evidence,items,latest]=await Promise.all([context(),loadEvidence(lead.id),loadAssessment(lead.id),latestSite(lead.id)]);
@@ -99,7 +121,7 @@ export async function EvidenceTab({lead}:{lead:Lead}) {
   </form></Panel></div>;
 }
 export async function PresenceTab({lead}:{lead:Lead}) {
-  const [items,latest]=await Promise.all([loadEvidence(lead.id),latestSite(lead.id)]);
+  const [items,latest,reading]=await Promise.all([loadEvidence(lead.id),latestSite(lead.id),latestEnrichment(lead.id)]);
   const linked=latest?items.find(item=>item.id===latest.evidence_id):undefined;
   return <div className="grid-two"><div className="stack"><Panel title="Situação do site"><div className="pad stack"><Pairs items={[
   ["Classificação",<SiteTag status={lead.website_status} key="status"/>],["Domínio informado",lead.domain?<code key="domain">{lead.domain}</code>:"A confirmar"],
@@ -107,6 +129,7 @@ export async function PresenceTab({lead}:{lead:Lead}) {
   ]}/><Notice tone="warning">Não localizar um site nas consultas realizadas não comprova sua inexistência. Confirme o vínculo com fonte oficial ou comercial.</Notice></div></Panel>
   <Panel title="Como chegamos a esta conclusão"><div className="pad stack">{linked?<><strong>{linked.observed}</strong><span className="meta">{linked.source_label} · {formatDate(linked.consulted_on)}</span><p>Método: {latest?.method}</p></>:<p className="muted">{latest?"A evidência original expirou ou está indisponível. Reavalie a conclusão.":"Nenhuma avaliação com evidência registrada."}</p>}</div></Panel>
   <Panel title="O que ainda falta verificar"><p className="pad">{latest?.pending||"Confirme o domínio oficial e descarte homônimos antes de classificar."}</p></Panel>
+  <SiteReading lead={lead} row={reading}/>
   <Panel title="Verificações externas"><div className="pad stack"><p>Abra a busca de fontes quando habilitada. A revisão da evidência continua manual.</p><ButtonLink href={"/app/verificar/"+lead.id}>Verificar fontes</ButtonLink></div></Panel>
   </div><Panel title="Registrar avaliação"><form className="pad stack" action={assessSite.bind(null,lead.id)}>
   <Field label="Classificação"><Select name="status" options={sites} defaultValue={lead.website_status}/></Field>

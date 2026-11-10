@@ -20,6 +20,25 @@ export async function startResearch(data:FormData) {
   if(typeof id!=="string")message(path,"Não foi possível iniciar a pesquisa.");
   message(path+"/"+id,"Pesquisa registrada. O worker processará a fila.",true);
 }
+export async function requestEnrichment(id:string) {
+  const {db,org}=await context();
+  const back="/app/oportunidades/"+id+"?aba=presenca";
+  if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
+  if(!uuid.safeParse(id).success)message(back,"Lead indisponível.");
+  const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:[id]});
+  saveError(back,error);
+  message(back,data?"Leitura do site na fila. O worker grava evidências e contatos para revisão.":"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data));
+}
+export async function requestEnrichmentAll() {
+  const {db,org}=await context();
+  const back="/app/oportunidades";
+  if(!readerEnabled())message(back,"A leitura de páginas está desativada no servidor.");
+  const {data:rows,error:listError}=await db.from("leads").select("id").eq("organization_id",org.id).not("domain","is",null).neq("stage","blocked").order("updated_at",{ascending:false}).limit(50);
+  saveError(back,listError);
+  const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:(rows??[]).map(r=>r.id)});
+  saveError(back,error);
+  message(back,data?data+" leads com domínio entraram na fila de leitura do site.":"Nenhum lead novo para ler: sem domínio ou já na fila.",Boolean(data));
+}
 export async function cancelResearch(id:string) {
   const {db,org}=await context();
   if(!uuid.safeParse(id).success)message(path,"Pesquisa indisponível.");

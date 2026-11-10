@@ -12,3 +12,7 @@ Rode **npm run worker** em processo Node 22+ persistente, separado do Next.js. E
 A tela atualiza os dados do job enquanto está aberta. Se ficar Pendente sem iniciar, verifique o processo, o endpoint do Supabase e as migrations. Falha de credenciais aparece como Aguardando configuração ou Parcial quando houver IDs preservados. Depois de corrigir a configuração, crie um novo job. Não execute o loop em função serverless ou em uma rota Next.js.
 
 A identidade do usuário é verificada ao enfileirar ou cancelar. As funções de claim, reserva e encerramento só são concedidas à service role. Separe a credencial e restrinja o acesso operacional a esse processo.
+
+## Leitura automática do site
+
+Com **ENABLE_OFFICIAL_PAGE_READING=true** no processo do worker, quando não há pesquisa na fila ele atende os pedidos de **Ler o site** (aba Presença digital do lead) e **Ler sites dos leads** (Oportunidades). Cada pedido tem lease de 120 segundos e até 3 tentativas. Um site fora do ar vira evidência, não falha. Lead bloqueado no meio do caminho é descartado sem gravar nada.

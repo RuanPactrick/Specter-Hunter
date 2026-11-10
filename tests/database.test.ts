@@ -161,6 +161,27 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     await expect(db.query("select public.reserve_research_request($1,$2)",[limited,limitJob.lease_token])).rejects.toMatchObject({code:"P2005"});
     await db.query("select public.finish_research($1,$2,'limit_reached','query_budget')",[limited,limitJob.lease_token]);
   });
+  it("enfileira leitura do site e grava só evidência pendente e contato não confirmado",async()=>{
+    await role("authenticated",actorB);
+    expect(await first("select public.request_enrichment($1,$2) n",[orgB,[leadA]])).toEqual({n:0});
+    await role("authenticated",actorA);
+    expect(await first("select public.request_enrichment($1,$2) n",[orgA,[leadA,leadB]])).toEqual({n:1});
+    expect(await first("select public.request_enrichment($1,$2) n",[orgA,[leadA]])).toEqual({n:0});
+    await expect(db.query("select * from public.claim_enrichment()")).rejects.toMatchObject({code:"42501"});
+    await role("service_role");
+    const item=await first<{lead_id:string;lease_token:string;domain:string}>("select * from public.claim_enrichment()");
+    expect(item).toMatchObject({lead_id:leadA,domain:"sample.example"});
+    const result=JSON.stringify({evidence:[{kind:"Contatos no site",observed:"Publicado no site: e-mail oi@sample.example.",url:"https://sample.example/"}],
+      contacts:[{kind:"email",value:"oi@sample.example",normalized:"oi@sample.example"},{kind:"phone",value:"x",normalized:"invalido"},{kind:"maps",value:"x",normalized:"x"}],
+      suggestion:{points:15,maximum:85}});
+    expect(await first("select public.finish_enrichment($1,$2,gen_random_uuid(),$3::jsonb) ok",[orgA,leadA,result])).toEqual({ok:false});
+    expect(await first("select public.finish_enrichment($1,$2,$3,$4::jsonb) ok",[orgA,leadA,item.lease_token,result])).toEqual({ok:true});
+    await role("authenticated",actorA);
+    expect(await first("select provider,review,confidence from public.evidence_items where lead_id=$1 and provider='site_reader'",[leadA])).toEqual({provider:"site_reader",review:"pending",confidence:"pendente"});
+    expect((await db.query("select kind,confirmed from public.lead_contacts where lead_id=$1 and source_label='Leitura automática do site'",[leadA])).rows).toEqual([{kind:"email",confirmed:false}]);
+    expect(await first("select state,suggestion->>'points' points from public.enrichment_requests where lead_id=$1",[leadA])).toEqual({state:"done",points:"15"});
+    expect(await first("select public.request_enrichment($1,$2) n",[orgA,[leadA]])).toEqual({n:1});
+  });
   it("isola objetos privados e revoga acesso a novas leituras",async()=>{
     await role("authenticated",actorA);
     const asset=request3,path=[orgA,leadA,asset].join("/");

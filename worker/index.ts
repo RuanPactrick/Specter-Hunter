@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
-import { googleEnabled, ProviderError, retryDelay, searchPlaces } from "../src/lib/providers";
+import { googleEnabled, ProviderError, readerEnabled, retryDelay, searchPlaces } from "../src/lib/providers";
+import { enrichmentPayload, readSite } from "../src/lib/enrichment";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
@@ -49,6 +50,14 @@ async function run(job:Job){
   }
   await finish(job,"pending","worker_stopped",1);
 }
+type Enrichment={organization_id:string;lead_id:string;lease_token:string;domain:string|null};
+async function enrich(item:Enrichment){
+  let result:ReturnType<typeof enrichmentPayload>|null=null,error:string|null=null;
+  if(!item.domain)error="no_domain";
+  else try{result=enrichmentPayload(await readSite(item.domain));}catch{error="reader_failed";}
+  const saved=await db.rpc("finish_enrichment",{p_org:item.organization_id,p_lead:item.lead_id,p_lease:item.lease_token,p_result:result,p_error:error});
+  if(saved.error)console.error("Falha ao gravar leitura do site; o lease permite nova tentativa.",saved.error.code);
+}
 async function main(){
   console.log("Worker Specter Hunter iniciado. Uma execução por processo.");
   while(!stopping){
@@ -57,6 +66,12 @@ async function main(){
       if(error){console.error("Fila indisponível.",error.code);await sleep(5000);continue;}
       const job=data?.[0] as Job|undefined;
       if(job){await run(job);continue;}
+      if(readerEnabled()){
+        const next=await db.rpc("claim_enrichment");
+        if(next.error)console.error("Fila de leitura indisponível.",next.error.code);
+        const item=next.data?.[0] as Enrichment|undefined;
+        if(item){await enrich(item);continue;}
+      }
       await sleep(1500);
     }catch{
       console.error("Execução interrompida; o lease permite recuperar o job.");

@@ -36,7 +36,7 @@ function abortable<T>(operation:Promise<T>,signal:AbortSignal) {
     void operation.then(resolve,reject).finally(()=>signal.removeEventListener("abort",abort));
   });
 }
-async function inspectBody(response:Awaited<ReturnType<typeof fetch>>) {
+async function readBody(response:Awaited<ReturnType<typeof fetch>>) {
   const type=response.headers.get("content-type")?.toLowerCase()??"";
   if(!type.includes("text/html")&&!type.includes("application/xhtml+xml")){
     await response.body?.cancel();
@@ -58,10 +58,18 @@ async function inspectBody(response:Awaited<ReturnType<typeof fetch>>) {
     }
     html+=decoder.decode();
   }finally{await reader.cancel().catch(()=>undefined);}
-  const title=html.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title\s*>/i)?.[1];
+  return html;
+}
+export function pageTitle(html:string|null) {
+  const title=html?.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title\s*>/i)?.[1];
   return title?.replace(/<[^>]*>/g,"").replace(/\s+/g," ").trim().slice(0,240)||null;
 }
 export async function inspectOfficial(input:string) {
+  const page=await readPublicPage(input,"SpecterHunter/0.1 (manual website availability check)");
+  return {url:page.url,status:page.status,title:pageTitle(page.html)};
+}
+/** Mesmas travas de SSRF, tamanho e redirect da verificação manual; devolve o HTML para quem extrai contatos. */
+export async function readPublicPage(input:string,agent:string) {
   const signal=AbortSignal.timeout(limits.timeout);
   let candidate=input;
   for(let redirects=0;redirects<=limits.redirects;redirects++){
@@ -75,7 +83,7 @@ export async function inspectOfficial(input:string) {
       else callback(null,ip.address,ip.family);
     }}});
     try{
-      const response=await fetch(url,{dispatcher,signal,redirect:"manual",headers:{Accept:"text/html,application/xhtml+xml","User-Agent":"SpecterHunter/0.1 (manual website availability check)"}});
+      const response=await fetch(url,{dispatcher,signal,redirect:"manual",headers:{Accept:"text/html,application/xhtml+xml","User-Agent":agent}});
       if([301,302,303,307,308].includes(response.status)){
         const location=response.headers.get("location");
         await response.body?.cancel();
@@ -83,8 +91,7 @@ export async function inspectOfficial(input:string) {
         candidate=new URL(location,url).href;
         continue;
       }
-      const title=await inspectBody(response);
-      return {url:url.href,status:response.status,title};
+      return {url:url.href,status:response.status,html:await readBody(response)};
     }finally{await dispatcher.destroy();}
   }
   throw new Error("redirect");
