@@ -17,14 +17,14 @@ const origin=(label:string)=>label==="Leitura automática do site"?"achado pelo 
 export async function ContactsTab({lead}:{lead:Lead}) {
   const rows=await loadContacts(lead.id);
   const blocked=lead.stage==="blocked";
-  return <div className="stack">{blocked&&<Notice tone="warning">Empresa marcada como não contatar: os atalhos de contato ficam desligados.</Notice>}
-  {rows.length?<div className="contact-groups">{contactOrder.map(kind=>{const list=rows.filter(c=>c.kind===kind);return list.length?<Panel key={kind} title={contacts[kind]+(list.length>1?" ("+list.length+")":"")}>
+  return <div className="contact-layout">{blocked&&<Notice tone="warning">Empresa marcada como não contatar: os atalhos de contato ficam desligados.</Notice>}
+  <div className="contact-results">{rows.length?<div className="contact-groups">{contactOrder.map(kind=>{const list=rows.filter(c=>c.kind===kind);return list.length?<Panel key={kind} title={contacts[kind]+(list.length>1?" ("+list.length+")":"")}>
     {list.map(c=>{const href=blocked?null:contactHref(c.kind,c.normalized,c.value);return <div className="row contact-row" key={c.id}><div className="min-w-0">
       <strong className="contact-value">{kind==="maps"?"Ficha no Google Maps":c.value}</strong><p className="meta">{origin(c.source_label)} · {formatDate(c.consulted_on)}</p></div>
       <div className="actions">{href&&<a className="btn small primary" href={href} target="_blank" rel="noopener noreferrer">{actionLabel[kind]}</a>}
       <form action={confirmContact.bind(null,lead.id,c.id,!c.confirmed)}><button className={"btn small"+(c.confirmed?" ghost":"")} type="submit" title={c.confirmed?"Clique para voltar a pendente":"Marque quando tiver certeza de que o canal é da empresa"}>{c.confirmed?"✓ Confirmado":"Confirmar"}</button></form></div></div>;})}
-  </Panel>:null;})}</div>:<Empty title="Nenhum canal ainda" description="Peça a leitura automática no Resumo ou adicione um canal abaixo."/>}
-  <details className="disclosure panel"><summary>Adicionar canal manualmente</summary><form className="inner stack" action={addContact.bind(null,lead.id)}>
+  </Panel>:null;})}</div>:<Empty title="Nenhum canal ainda" description="Peça a leitura automática no Resumo ou adicione um canal abaixo."/>}</div>
+  <details className="disclosure panel contact-add"><summary>Adicionar canal manualmente</summary><form className="inner stack" action={addContact.bind(null,lead.id)}>
   <Field label="Tipo"><Select name="kind" options={contacts}/></Field>
   <Field label="Valor" hint="Telefone com DDD, e-mail, @ do Instagram ou endereço do site."><input name="value" maxLength={2048} required/></Field>
   <Field label="Onde você encontrou"><input name="source_label" maxLength={200} required placeholder="Ex.: cartão de visita, site, ligação"/></Field>
@@ -47,18 +47,19 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   const draft=events.data?.find(e=>e.kind==="draft");
   const activeDraft=draft && typeof draft.purpose==="string" && Object.hasOwn(purposes,draft.purpose) ? {purpose:draft.purpose as Purpose,content:String(draft.content)}:undefined;
   const previewUrl=preview&&["ready","sent","review","approved"].includes(preview.status)?preview.url:null;
-  return <div className="grid-two"><div className="stack">
+  return <div className="approach-workflow"><div className="approach-layout"><div className="stack approach-main">
   {lead.stage==="blocked"?<Notice tone="warning">Lead na lista de não contato. As ações e sugestões ficam bloqueadas até revisão pelo proprietário.</Notice>:<Panel title="Prepare o primeiro contato" description="Escolha o objetivo, ajuste o texto e envie pelo WhatsApp. Depois registre o que aconteceu.">
   {whats&&!whats.confirmed&&<div className="pad"><Notice tone="warning"><span>O robô achou o WhatsApp <strong>{whats.value}</strong>. Confirme que é da empresa para liberar o envio.</span>
     <form action={confirmContact.bind(null,lead.id,whats.id,true)} className="mt-2"><input type="hidden" name="back" value="abordagem"/><Submit style="small">Confirmar este WhatsApp</Submit></form></Notice></div>}
   {!whats&&<div className="pad"><Notice>Nenhum WhatsApp encontrado. Copie a mensagem e use telefone ou e-mail da aba Contatos.</Notice></div>}
   <MessageEditor sender={org.message_name} city={lead.city} preview={previewUrl} contact={whats?.confirmed?whats:undefined} draft={activeDraft} action={outreach.bind(null,lead.id)}/></Panel>}
   <Panel title="Interações registradas">{events.data?.length?events.data.map(e=><div className="row" key={e.id}><div className="min-w-0 wrap-break-word"><strong>{{draft:"Rascunho",sent:"Envio confirmado",reply:"Resposta recebida",call:"Ligação realizada"}[String(e.kind)]??"Registro"}</strong><p>{e.content}</p><p className="meta">{e.channel} · {formatDate(e.created_at)}</p></div></div>):<Empty title="Sem interações" description="Os registros aparecem aqui após salvar um rascunho ou confirmar uma interação."/>}</Panel></div>
-  <div className="stack"><Panel title="O que usar na conversa" description="Fatos sobre a empresa para personalizar a mensagem. Só afirme o que estiver confirmado."><div className="pad stack">
-  {facts.length?<ul className="fact-list">{facts.slice(0,8).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos atuais sobre a empresa.</p>}
-  <ButtonLink href={leadPath(lead.id)}>Conferir no Resumo</ButtonLink></div></Panel>
-  <LeadAssistant lead={lead} evidence={evidence} modes={["message","questions"]}/>
-  <Panel title="Oferta recomendada">{offers.data?.map(row=><div className="row !block" key={row.id}><details className="disclosure"><summary>{row.kind}</summary><div className="inner">
+  <div className="stack approach-side"><Panel title="O que usar na conversa" description="Comece pelos fatos confirmados. Achados pendentes precisam ser conferidos."><div className="pad stack">
+  {facts.length?<><ul className="fact-list">{facts.slice(0,4).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>
+  {facts.length>4&&<details className="disclosure"><summary>Ver mais {facts.length-4} achados</summary><div className="inner"><ul className="fact-list">{facts.slice(4).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul></div></details>}</>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos atuais sobre a empresa.</p>}
+  <ButtonLink href={leadPath(lead.id,"fontes")}>Revisar evidências</ButtonLink></div></Panel>
+  <LeadAssistant lead={lead} evidence={evidence} modes={["message","questions"]}/></div></div>
+  <Panel title="Oferta recomendada" description="Organize uma proposta comercial com uma evidência confirmada." className="approach-offer">{offers.data?.map(row=><div className="row !block" key={row.id}><details className="disclosure"><summary>{row.kind}</summary><div className="inner">
   <Pairs items={[["Problema",row.problem],["Evidência",verified.find(e=>e.id===row.evidence_id)?.source_label??"Revisão necessária"],["Solução",row.solution],["Benefício esperado",row.benefit],["Escopo",row.scope],["Perguntas",row.questions],["Objeções",row.objections]]}/>
   </div></details></div>)}
   <div className="pad stack">{lead.stage==="blocked"?<p className="muted">Elaboração indisponível para este lead.</p>:verified.length?<details className="disclosure"><summary>Elaborar oferta</summary><form action={saveOffer.bind(null,lead.id)} className="inner stack">
@@ -66,7 +67,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   <Field label="Evidência confirmada"><Select name="evidence_id" options={evidenceOptions(verified)}/></Field>
   {([["problem","Problema observado"],["solution","Solução"],["benefit","Benefício esperado"],["scope","Escopo mínimo"],["questions","Perguntas de qualificação"],["objections","Possíveis objeções"]] as const).map(([name,label])=><Field key={name} label={label}><textarea name={name} required maxLength={name==="benefit"?1000:1200}/></Field>)}
   <Submit>Salvar oferta</Submit></form></details>:<p className="muted">Adicione uma evidência confirmada para embasar a oferta.</p>}</div>
-  </Panel></div></div>;
+  </Panel></div>;
 }
 
 export async function PreviewTab({lead}:{lead:Lead}) {
@@ -82,20 +83,23 @@ export async function PreviewTab({lead}:{lead:Lead}) {
     "- Confirme conteúdo, canais e autorizações de uso antes de publicar.","- Use apenas materiais autorizados para a finalidade registrada.",
     "- Identifique a prévia e mantenha a indexação desativada durante a revisão."
   ].join("\n");
-  return <div className="grid-two"><Panel title="Prévia do site" description={preview?"O site de demonstração desta empresa.":"Depois de montar a prévia, cole o link aqui para acompanhar."} action={preview?<Tag tone="info">{previewStates[preview.status]}</Tag>:null}>
+  return <div className="preview-layout"><section className="preview-preparation"><header className="workflow-heading"><span>01</span><div><h2>Prepare o pedido</h2><p>Use fatos confirmados para orientar a demonstração.</p></div></header>
+  <LeadAssistant lead={lead} evidence={evidence} modes={["brief","scope"]}/>
+  <details className="disclosure panel"><summary>Ver briefing completo com fontes</summary><div className="inner stack">
+  <p className="muted">Você também pode copiar este contexto e usar em outro criador de sites.</p>
+  <Field label="Briefing com evidências e pendências"><textarea readOnly rows={10} value={brief}/></Field><CopyText value={brief} label="Copiar briefing"/>
+  </div></details></section>
+  <Panel title="02 · Acompanhar a prévia" description={preview?"Atualize o status, o link e o retorno da empresa.":"Quando a demonstração estiver pronta, registre o link e acompanhe o envio."} action={preview?<Tag tone="info">{previewStates[preview.status]}</Tag>:null} className="preview-track">
   {preview&&<div className="row"><div><span className="meta">Criada em {formatDate(preview.created_at)}</span><br/><SafeLink url={preview.url}/></div><SafeLink url={preview.url}>Abrir prévia</SafeLink></div>}
   <form action={savePreview.bind(null,lead.id)} className="pad stack"><div className="fields">
     <Field label="URL da prévia"><input name="url" inputMode="url" required maxLength={2048} defaultValue={preview?.url}/></Field>
-    <Field label="Repositório (opcional)"><input name="repository" inputMode="url" maxLength={2048} defaultValue={preview?.repository??""}/></Field>
     <Field label="Status"><Select name="status" options={previewStates} defaultValue={preview?.status??"building"}/></Field>
+  </div><details className="disclosure"><summary>Detalhes e checklist</summary><div className="inner stack"><div className="fields">
+    <Field label="Repositório (opcional)"><input name="repository" inputMode="url" maxLength={2048} defaultValue={preview?.repository??""}/></Field>
     <Field label="Data de envio registrado"><input type="date" name="sent_on" defaultValue={preview?.sent_on??""}/></Field>
     <Field label="Feedback" full><textarea name="feedback" maxLength={1600} defaultValue={preview?.feedback}/></Field>
     <Field label="Observações" full><textarea name="note" maxLength={1600} defaultValue={preview?.note}/></Field>
-  </div><fieldset><legend className="font-bold mb-1">Checklist preenchido manualmente</legend>{checklist.map((item,i)=><label className="check" key={item}><input type="checkbox" name={"check_"+i} defaultChecked={preview?.checklist.includes(item)}/>{item}</label>)}</fieldset><Submit>Registrar prévia</Submit></form></Panel>
-  <div className="stack"><LeadAssistant lead={lead} evidence={evidence} modes={["brief","scope"]}/>
-  <Panel title="Pedido para montar a prévia" description="Texto pronto com os dados da empresa. Copie e cole no Claude ou em outro criador de sites."><div className="pad stack">
-  <Field label="Briefing com evidências e pendências"><textarea readOnly rows={13} value={brief}/></Field><CopyText value={brief} label="Copiar briefing"/>
-  </div></Panel></div></div>;
+  </div><fieldset><legend className="font-bold mb-1">Checklist preenchido manualmente</legend>{checklist.map((item,i)=><label className="check" key={item}><input type="checkbox" name={"check_"+i} defaultChecked={preview?.checklist.includes(item)}/>{item}</label>)}</fieldset></div></details><Submit>Registrar prévia</Submit></form></Panel></div>;
 }
 
 export async function HistoryTab({lead,owner}:{lead:Lead;owner:boolean}) {
@@ -116,13 +120,14 @@ export async function HistoryTab({lead,owner}:{lead:Lead;owner:boolean}) {
     return rows.map(r=>({id:r.id,at:r.created_at,title:labels[r.event]??"Registro de atividade",note:typeof r.detail?.reason==="string"?r.detail.reason:"",related:typeof r.detail?.related_id==="string"?r.detail.related_id:null}));
   });
   const when=(iso:string)=>new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"});
-  return <div className="grid-two"><Panel title="Histórico" description="Tudo o que aconteceu com esta empresa, do mais recente para o mais antigo.">{moments.length?<ol className="timeline">{moments.map(m=><li key={m.id}><strong>{m.title}</strong>{m.note&&<p>{m.note}</p>}
+  return <div className="history-workflow"><Panel title="Atividade recente" description="Mudanças, leituras e contatos em ordem cronológica." className="history-timeline">{moments.length?<ol className="timeline">{moments.map(m=><li key={m.id}><strong>{m.title}</strong>{m.note&&<p>{m.note}</p>}
   {m.related&&<Link href={leadPath(m.related)}>Ver lead relacionado</Link>}<time className="meta" dateTime={m.at}>{when(m.at)}</time></li>)}</ol>:<Empty title="Nada registrado ainda" description="Cadastro, leituras do robô, mudanças de etapa e mensagens aparecem aqui."/>}</Panel>
-  {owner&&<Panel title="Revisar possível duplicação" description="Vincule dois registros relacionados sem perder os anexos, as fontes ou a trilha de auditoria."><form className="pad stack" action={linkDuplicates.bind(null,lead.id)}>
-  <Field label="ID do outro lead" hint="Use o identificador da URL de detalhes."><input name="related" required maxLength={36}/></Field>
-  <Field label="Justificativa da revisão"><input name="reason" required maxLength={500}/></Field><Submit>Vincular registros</Submit></form></Panel>}
-  {owner&&<Panel title="Excluir cadastro" description="A confirmação remove os dados do lead e seus registros associados. As restrições de não contato são preservadas."><form action={deleteLead.bind(null,lead.id)} className="pad stack">
+  {owner&&<details className="disclosure panel history-admin"><summary>Ações de organização</summary><div className="inner history-admin-grid">
+  <section><h3>Revisar possível duplicação</h3><p className="meta">Vincule registros relacionados sem perder anexos ou fontes.</p><form className="stack" action={linkDuplicates.bind(null,lead.id)}>
+  <Field label="ID do outro registro" hint="Use o identificador da URL de detalhes."><input name="related" required maxLength={36}/></Field>
+  <Field label="Justificativa da revisão"><input name="reason" required maxLength={500}/></Field><Submit>Vincular registros</Submit></form></section>
+  <section className="danger-zone"><h3>Excluir cadastro</h3><p className="meta">Remove os dados desta empresa e seus registros associados. Restrições de não contato são preservadas.</p><form action={deleteLead.bind(null,lead.id)} className="stack">
   <Field label="Digite o nome exato da empresa"><input name="confirmation" required maxLength={160}/></Field>
   <label className="check"><input type="checkbox" name="acknowledge" required/>Confirmo a exclusão permanente deste lead.</label><Submit style="danger">Excluir cadastro</Submit>
-  </form></Panel>}</div>;
+  </form></section></div></details>}</div>;
 }

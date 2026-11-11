@@ -65,7 +65,7 @@ export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evi
     {stopped && <Notice tone="warning">{stopped.observed}</Notice>}
     {guess && <Notice>{guess.observed}</Notice>}
     {expired.length>0&&<Notice tone="warning">Achados vencidos não entram no resumo nem na abordagem: {expired.slice(0,5).join(", ")}. <Link href={leadPath(lead.id,"evidencias")}>Confira as fontes</Link>.</Notice>}
-    <div className="dossier-grid">
+    <div className="dossier-primary">
       {s && <article className="finding score">
         <header><span className="finding-icon" aria-hidden="true"><Sparkles size={18} /></span><h3>Nota da presença digital</h3></header>
         <p className="score-big"><strong>{s.points}</strong> / {s.maximum}</p>
@@ -82,7 +82,9 @@ export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evi
         })}</ul> : <p className="muted">Nenhum telefone, WhatsApp ou e-mail encontrado.</p>}
         {usable.length > 6 && <p className="meta">E mais {usable.length - 6} na aba Contatos.</p>}
       </article>
-      {cards.map(c => <Finding key={c.title} lead={lead} title={c.title} icon={c.icon} empty={c.empty} item={pick(c.kinds)} />)}
     </div>
+    <section className="dossier-grid" aria-label="Achados por fonte">
+      {cards.map(c => <Finding key={c.title} lead={lead} title={c.title} icon={c.icon} empty={c.empty} item={pick(c.kinds)} />)}
+    </section>
   </section>;
 }

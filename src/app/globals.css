@@ -152,3 +152,100 @@ progress{width:100%;height:9px;accent-color:var(--color-primary)}.steps{list-sty
 .timeline{list-style:none;margin:0;padding:8px 16px 16px;display:grid;gap:0}.timeline li{position:relative;padding:10px 0 10px 20px;border-left:2px solid #e1e7ea;display:grid;gap:2px}
 .timeline li::before{content:"";position:absolute;left:-6px;top:15px;width:10px;height:10px;border-radius:50%;background:#2f7d55}.timeline li p{margin:0;font-size:13px}
 @media (max-width:640px){.contact-groups{grid-template-columns:1fr}.signals{grid-template-columns:1fr}}
+
+/* Ficha da empresa: uma sequência de trabalho com contexto e ações agrupados. */
+.lead-workspace{display:grid;gap:14px;min-width:0}
+.lead-workspace>.page-head{align-items:center;padding:17px 20px;background:#fff;border:1px solid var(--color-border);border-radius:12px}
+.lead-workspace>.page-head h1{overflow-wrap:anywhere}
+.lead-status{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:0 2px}
+.lead-workspace>.tabs{margin-top:-2px}
+.lead-workspace>.tab-intro{margin:0;padding:11px 14px;border-left:3px solid var(--color-primary);border-radius:0 8px 8px 0;background:#edf4ef;line-height:1.55}
+.lead-workspace .panel-head{align-items:flex-start}
+.lead-workspace .panel-head h2{line-height:1.3}
+.lead-workspace .panel-head p{max-width:68ch;line-height:1.45}
+.dossier{gap:14px}
+.dossier-head{align-items:center;padding:2px 1px}
+.dossier-head>div{max-width:760px}
+.dossier-head p{line-height:1.5}
+.dossier-primary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,370px),1fr));gap:12px;align-items:stretch}
+.dossier-primary .finding{padding:17px;background:#fff}
+.dossier-primary .finding.score{background:#f0f5f1;border-color:#d3dfd5}
+.dossier-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.finding{gap:9px;padding:13px;border-radius:9px}
+.finding header{align-items:flex-start}
+.finding h3{line-height:1.35}
+.finding p{line-height:1.55}
+.finding-foot{align-items:flex-start}
+.summary-layout,.approach-workflow,.history-workflow{display:grid;gap:16px;min-width:0}
+.summary-action-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:16px;align-items:start}
+.summary-data .fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.summary-data .pad{padding:18px 20px}
+.contact-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(290px,.85fr);gap:16px;align-items:start}
+.contact-layout>.notice{grid-column:1/-1}
+.contact-results{min-width:0}
+.contact-groups{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.contact-row{align-items:flex-start}
+.contact-row .actions{justify-content:flex-end}
+.contact-value{display:block;line-height:1.45}
+.contact-add{align-self:start}
+.approach-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.9fr);gap:16px;align-items:start}
+.approach-main,.approach-side{min-width:0}
+.approach-offer{min-width:0}
+.approach-offer .pad{max-width:860px}
+.fact-list{gap:0}
+.fact-list li{padding:10px 0;border-bottom:1px solid var(--color-border);line-height:1.5}
+.fact-list li:last-child{border-bottom:0}
+.fact-list li p{line-height:1.5}
+.workflow-section{display:grid;gap:14px;min-width:0}
+.workflow-heading{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid #dce7de;border-left:3px solid var(--color-primary);border-radius:10px;background:#eef4ef}
+.workflow-heading>span{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:8px;background:var(--color-primary);color:#fff;font:700 12px/1 "IBM Plex Mono",monospace}
+.workflow-heading h2{margin:0 0 3px;font-size:17px}
+.workflow-heading p{margin:0;color:var(--color-text-secondary);font-size:13px;line-height:1.5}
+.preview-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.preview-preparation{display:grid;gap:12px;min-width:0}
+.preview-track{min-width:0}
+.preview-track .fields{grid-template-columns:1fr}
+.preview-track .pad{padding:17px 19px}
+.materials-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.85fr);gap:16px;align-items:start}
+.evidence-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.8fr);gap:16px;align-items:start}
+.evidence-list,.evidence-add{min-width:0}
+.evidence-list>.row{padding:9px 12px}
+.evidence-list .disclosure>summary{line-height:1.45}
+.evidence-list .disclosure>summary>.inline{align-items:center}
+.evidence-add{align-self:start}
+.presence-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(310px,.8fr);gap:16px;align-items:start}
+.presence-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.presence-form{min-width:0}
+.history-timeline .timeline{max-width:980px}
+.history-admin>summary{color:var(--color-text-secondary)}
+.history-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding-top:12px}
+.history-admin-grid>section{min-width:0;padding:16px;border:1px solid var(--color-border);border-radius:9px}
+.history-admin-grid h3{margin:0 0 5px;font-size:15px}
+.history-admin-grid .meta{margin:0 0 12px;line-height:1.5}
+.history-admin-grid .danger-zone{background:#fffafa;border-color:#eed5d5}
+@media(max-width:1179px){
+  .dossier-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .contact-groups{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:920px){
+  .dossier-primary,.summary-action-grid,.contact-layout,.approach-layout,.preview-layout,.materials-layout,.evidence-layout,.presence-layout{grid-template-columns:1fr}
+  .contact-add,.evidence-add{position:static}
+  .summary-data .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:720px){
+  .lead-workspace{gap:12px}
+  .lead-workspace>.page-head{padding:14px;border-radius:10px}
+  .lead-status{gap:7px}
+  .dossier-head{align-items:flex-start}
+  .dossier-head>form{width:100%}
+  .dossier-head>form .btn{width:100%}
+  .dossier-grid,.presence-summary,.history-admin-grid{grid-template-columns:1fr}
+  .summary-data .fields{grid-template-columns:1fr}
+  .contact-groups{grid-template-columns:1fr}
+  .contact-row{flex-direction:column;align-items:stretch}
+  .contact-row .actions{justify-content:flex-start;width:100%}
+  .contact-row .actions .btn{flex:1}
+  .workflow-heading{padding:12px}
+  .preview-track .pad,.summary-data .pad{padding:12px}
+  .history-admin-grid{padding:0}
+}
