@@ -46,3 +46,12 @@ describe("Leitura automática do site",()=>{
     expect(payload.suggestion.points).toBe(25);
   });
 });
+describe("Identidade visual do site",()=>{
+  it("acha cores da marca e fontes, ignorando cinzas e fontes genéricas",async()=>{
+    const { identity }=await import("../src/lib/enrichment");
+    const html=`<meta name="theme-color" content="#0e4d6e"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
+<style>h1{color:#29A9E0;font-family:'Montserrat',sans-serif}p{color:#333333;font-family:Arial}a{background:#f4b400}.x{color:#29a9e0}</style>`;
+    expect(identity(html)).toEqual({colors:["#0E4D6E","#29A9E0","#F4B400"],fonts:["Montserrat","Open Sans"]});
+    expect(identity("<p>nada</p>")).toEqual({colors:[],fonts:[]});
+  });
+});

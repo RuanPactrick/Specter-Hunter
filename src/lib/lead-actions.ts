@@ -104,8 +104,9 @@ export async function addContact(id:string,data:FormData) {
   saveError(path,error);
   message(path,"Canal comercial cadastrado.",true);
 }
-export async function confirmContact(id:string,contactId:string,confirmed:boolean,form?:FormData) {
-  const path=leadPath(id,form?.get("back")==="abordagem"?"abordagem":"contatos");
+// back: aba para onde voltar ("abordagem" quando confirmado de lá); FormData vem por último quando não há back
+export async function confirmContact(id:string,contactId:string,confirmed:boolean,back?:string|FormData) {
+  const path=leadPath(id,back==="abordagem"?"abordagem":"contatos");
   await loadLead(id);
   const { db,org }=await context();
   const { data,error }=await db.from("lead_contacts").update({confirmed}).eq("organization_id",org.id).eq("lead_id",id).eq("id",contactId).select("id").maybeSingle();

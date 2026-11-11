@@ -9,7 +9,7 @@ const junkEmail = /(sentry|wixpress|example|seuemail|email@|\.png|\.jpg|\.jpeg|\
 
 export type Marketing = { pixel_meta: boolean; pixel_google: boolean; mobile: boolean; whatsapp_button: boolean; copyright: number | null; outdated: boolean };
 export type Found = { emails: string[]; phones: string[]; whatsapp: string | null; instagram: string | null; facebook: string | null; linkedin: string | null; cnpj: string | null };
-export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing } | { ok: false; error: string; url?: string };
+export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing; identity?: Identity } | { ok: false; error: string; url?: string };
 export type Suggestion = { points: number; maximum: number; signals: Record<string, boolean>; opportunity: "alta" | "media" | "baixa" | null; rationale: string };
 type ContactRow = { kind: "email" | "phone" | "whatsapp" | "instagram"; value: string; normalized: string };
 type EvidenceRow = { kind: string; observed: string; url: string | null; excerpt: string | null };
@@ -55,6 +55,23 @@ export function marketing(html: string, year = new Date().getFullYear()): Market
   return { pixel_meta, pixel_google, mobile, whatsapp_button, copyright, outdated: !mobile || (copyright !== null && copyright <= year - 2) };
 }
 
+export type Identity = { colors: string[]; fonts: string[] };
+const genericFonts = /^(inherit|initial|unset|sans-serif|serif|monospace|cursive|system-ui|-apple-system|blinkmacsystemfont|arial|helvetica|helvetica neue|segoe ui|roboto|times new roman|times|georgia|verdana|tahoma|ui-sans-serif|ui-serif|apple color emoji|segoe ui emoji|var\(.*)$/i;
+/** Cores e fontes da marca. shortcut: só lê o HTML da página inicial (inline e <style>), não os .css externos; ler o CSS se as cores vierem vazias com frequência. */
+export function identity(html: string): Identity {
+  const hex = (h: string) => { const v = h.slice(1).toLowerCase(); return "#" + (v.length === 3 ? v.split("").map(c => c + c).join("") : v).toUpperCase(); };
+  const gray = (h: string) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); return Math.max(r, g, b) - Math.min(r, g, b) < 18; };
+  const count = new Map<string, number>();
+  const theme = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-f]{3,6})/i)?.[1];
+  if (theme) count.set(hex(theme), 100);
+  for (const m of html.matchAll(/(?:color|background(?:-color)?|fill|border(?:-color)?)\s*:\s*(#[0-9a-f]{6}\b|#[0-9a-f]{3}\b)/gi)) { const c = hex(m[1]); if (!gray(c)) count.set(c, (count.get(c) ?? 0) + 1); }
+  const colors = [...count].sort((a, b) => b[1] - a[1]).map(([c]) => c).slice(0, 4);
+  const fonts = new Set<string>();
+  for (const m of html.matchAll(/fonts\.googleapis\.com\/css2?\?[^"'>]*/gi)) for (const f of m[0].matchAll(/family=([^:&;"']+)/g)) fonts.add(decodeURIComponent(f[1].replace(/\+/g, " ")));
+  for (const m of html.matchAll(/font-family\s*:\s*([^;}"]+)/gi)) { const first = m[1].split(",")[0].trim().replace(/^['"]|['"]$/g, ""); if (first && !genericFonts.test(first) && first.length < 40) fonts.add(first); }
+  return { colors, fonts: [...fonts].slice(0, 3) };
+}
+
 function merge(a: Found, b: Found): Found {
   const uniq = (x: string[], y: string[]) => [...new Set([...x, ...y])].slice(0, 5);
   return { emails: uniq(a.emails, b.emails), phones: uniq(a.phones, b.phones), whatsapp: a.whatsapp ?? b.whatsapp, instagram: a.instagram ?? b.instagram,
@@ -89,7 +106,7 @@ export async function readSite(domain: string, read = readPublicPage): Promise<S
       // páginas internas (contato, sobre) em paralelo
       for (const inner of await Promise.all(internalLinks(page.html, page.url).map(link => read(link, agent).catch(() => null))))
         if (inner?.html && inner.status < 400) found = merge(found, extract(inner.html));
-      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html) };
+      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html), identity: identity(page.html) };
     } catch (cause) { error = cause instanceof Error ? cause.message : "falha"; }
   }
   return { ok: false, error, ...(blockedAt && error.startsWith("HTTP") ? { url: blockedAt } : {}) };
@@ -159,6 +176,8 @@ export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   evidence.push({ kind: "Contatos no site", observed: listed.length ? "Publicado no site: " + listed.join("; ") + "." : "Nenhum contato encontrado no HTML da página inicial e de contato.", url: site.url, excerpt: null });
   const level = opportunity(site.marketing);
   evidence.push({ kind: "Sinais de marketing", observed: "Página inicial: " + explainMarketing(site.marketing) + ". Oportunidade sugerida: " + level + ".", url: site.url, excerpt: null });
+  const id = site.identity;
+  if (id && (id.colors.length || id.fonts.length)) evidence.push({ kind: "Identidade visual", observed: [id.colors.length && "Cores: " + id.colors.join(", ") + ".", id.fonts.length && "Fontes: " + id.fonts.join(", ") + "."].filter(Boolean).join(" "), url: site.url, excerpt: null });
   return { evidence, contacts, suggestion: suggest(site, extra), site_status: "owned" as const, site_url: site.url };
 }
 export type Payload = ReturnType<typeof enrichmentPayload>;

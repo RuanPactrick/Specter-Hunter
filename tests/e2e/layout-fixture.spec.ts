@@ -52,16 +52,14 @@ test("carteira e detalhe respondem no mobile, tablet e desktop com Auth e REST s
     await surface.getByRole("link",{name:/Empresa fictícia de teste/}).click();
     await expect(page.getByRole("heading",{name:"Empresa fictícia de teste"})).toBeVisible();
     await expect(page.getByRole("heading",{name:"O que encontramos"})).toBeVisible();
-    await expect(page.getByText(/Leitura automática do site · consultado em/)).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Argumento de venda"})).toBeVisible();
     await expect(page.getByText("Informação antiga que não pode ser usada como atual.")).toHaveCount(0);
     await expect(page.getByText(/Achados vencidos não entram no resumo nem na abordagem: Sinais de marketing/)).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
-    await page.getByRole("navigation",{name:"Seções do lead"}).getByRole("link",{name:"Fontes e conferência",exact:true}).click();
-    await expect(page.getByRole("heading",{name:"Evidências digitais"})).toBeVisible();
-    await expect(page.getByText("Expirada · Confirmada")).toBeVisible();
-    await page.locator("#evidence-f0000000-0000-4000-8000-000000000006 summary").click();
-    await expect(page.getByRole("paragraph").filter({hasText:"Informação antiga que não pode ser usada como atual."})).toBeVisible();
-    await expect(page.locator("#evidence-f0000000-0000-4000-8000-000000000006 .pairs")).toContainText("Expiração");
+    await page.getByRole("navigation",{name:"Seções da empresa"}).getByRole("link",{name:/^Fontes/}).click();
+    await expect(page.getByRole("heading",{name:"De onde vem cada informação"})).toBeVisible();
+    await expect(page.locator("#evidence-f0000000-0000-4000-8000-000000000006")).toContainText("Informação antiga que não pode ser usada como atual.");
+    await expect(page.locator("#evidence-f0000000-0000-4000-8000-000000000006")).toContainText("Vencida");
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
   }
   await page.setViewportSize({width:1280,height:712});

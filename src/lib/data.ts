@@ -5,6 +5,7 @@ import { z } from "zod";
 import { context } from "./auth";
 import { nameKey, regions, stages, sites, type Lead, type Evidence, type Contact, type Assessment, type Preview } from "./domain";
 import { param, type Search } from "@/components/ui";
+import type { Suggestion } from "./enrichment";
 
 export const leadFields = "id,name,sector,city,region,district,address,domain,notes,source_label,source_url,consulted_on,stage,website_status,priority,assignee_id,next_action,follow_up,loss_reason,contract_value,updated_at";
 export const pageSize=20;
@@ -73,6 +74,14 @@ export const loadContacts = cache(async (id:string) => {
   const { data,error }=await db.from("lead_contacts").select("id,kind,value,normalized,source_label,consulted_on,confirmed").eq("organization_id",org.id).eq("lead_id",id).order("created_at").limit(100);
   if(error) throw new Error("Falha ao carregar contatos");
   return (data??[]) as Contact[];
+});
+export type Reading = { state: "pending" | "running" | "done" | "failed"; step: string | null; error_code: string | null; suggestion: Suggestion | null; finished_at: string | null };
+/** Última leitura automática da empresa (nota sugerida, etapa atual). */
+export const loadReading = cache(async (id:string) => {
+  const { db,org }=await context();
+  const { data,error }=await db.from("enrichment_requests").select("state,step,error_code,suggestion,finished_at").eq("organization_id",org.id).eq("lead_id",id).maybeSingle();
+  if(error) throw new Error("Falha ao ler a leitura do site");
+  return data as Reading|null;
 });
 export const loadAssessment = cache(async (id:string) => {
   const { db,org }=await context();
