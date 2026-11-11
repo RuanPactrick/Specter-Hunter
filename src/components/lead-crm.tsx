@@ -5,9 +5,7 @@ import { MessageEditor } from "./message-editor";
 import { CopyText } from "./copy-text";
 import { confirmed, evidenceOptions } from "./lead-evidence";
 import { deleteLead } from "@/lib/privacy-actions";
-import { aiConfig,assistiveModes,minimizeEvidence } from "@/lib/assistive";
-import { generateAssistance } from "@/lib/assistive-action";
-import { AssistiveEditor } from "./assistive-editor";
+import { LeadAssistant } from "./lead-assistant";
 import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
 import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
@@ -59,7 +57,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   <div className="stack"><Panel title="O que usar na conversa" description="Fatos sobre a empresa para personalizar a mensagem. Só afirme o que estiver confirmado."><div className="pad stack">
   {facts.length?<ul className="fact-list">{facts.slice(0,8).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos atuais sobre a empresa.</p>}
   <ButtonLink href={leadPath(lead.id)}>Conferir no Resumo</ButtonLink></div></Panel>
-  {aiConfig()&&lead.stage!=="blocked"&&verified.length>0&&<Panel title="IA assistiva" description="Opcional. Selecione as observações que podem ser compartilhadas com o provedor."><AssistiveEditor action={generateAssistance.bind(null,lead.id)} options={assistiveModes} evidence={verified.slice(0,12).map(e=>({id:e.id,observed:minimizeEvidence(e.observed)}))}/></Panel>}
+  <LeadAssistant lead={lead} evidence={evidence} modes={["message","questions"]}/>
   <Panel title="Oferta recomendada">{offers.data?.map(row=><div className="row !block" key={row.id}><details className="disclosure"><summary>{row.kind}</summary><div className="inner">
   <Pairs items={[["Problema",row.problem],["Evidência",verified.find(e=>e.id===row.evidence_id)?.source_label??"Revisão necessária"],["Solução",row.solution],["Benefício esperado",row.benefit],["Escopo",row.scope],["Perguntas",row.questions],["Objeções",row.objections]]}/>
   </div></details></div>)}
@@ -94,9 +92,10 @@ export async function PreviewTab({lead}:{lead:Lead}) {
     <Field label="Feedback" full><textarea name="feedback" maxLength={1600} defaultValue={preview?.feedback}/></Field>
     <Field label="Observações" full><textarea name="note" maxLength={1600} defaultValue={preview?.note}/></Field>
   </div><fieldset><legend className="font-bold mb-1">Checklist preenchido manualmente</legend>{checklist.map((item,i)=><label className="check" key={item}><input type="checkbox" name={"check_"+i} defaultChecked={preview?.checklist.includes(item)}/>{item}</label>)}</fieldset><Submit>Registrar prévia</Submit></form></Panel>
+  <div className="stack"><LeadAssistant lead={lead} evidence={evidence} modes={["brief","scope"]}/>
   <Panel title="Pedido para montar a prévia" description="Texto pronto com os dados da empresa. Copie e cole no Claude ou em outro criador de sites."><div className="pad stack">
   <Field label="Briefing com evidências e pendências"><textarea readOnly rows={13} value={brief}/></Field><CopyText value={brief} label="Copiar briefing"/>
-  </div></Panel></div>;
+  </div></Panel></div></div>;
 }
 
 export async function HistoryTab({lead,owner}:{lead:Lead;owner:boolean}) {

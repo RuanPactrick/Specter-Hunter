@@ -76,6 +76,17 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     await expect(db.query("insert into public.exclusions(organization_id,name) values($1,'Teste')",[orgA])).rejects.toMatchObject({code:"42501"});
     await expect(db.query("update public.leads set assignee_id=$2 where id=$1",[leadA,actorB])).rejects.toMatchObject({code:"23503"});
   });
+  it("registra consultas Gemini somente para leads da organização e respeita a cota pontual",async()=>{
+    const query="select public.reserve_live_lookup($1,'gemini','assist',$2)";
+    await role("authenticated",actorC);
+    await expect(db.query(query,[orgB,leadB])).rejects.toMatchObject({code:"42501"});
+    await expect(db.query(query,[orgA,leadB])).rejects.toMatchObject({code:"P2003"});
+    for(let i=0;i<6;i++)await db.query(query,[orgA,leadA]);
+    await expect(db.query(query,[orgA,leadA])).rejects.toMatchObject({code:"P2005"});
+    await role("postgres");
+    expect(await first("select count(*)::int n from public.provider_usage where organization_id=$1 and provider='gemini' and operation='assist'",[orgA])).toEqual({n:6});
+    await db.query("update public.provider_usage set created_at=now()-interval '1 day' where organization_id=$1 and provider='gemini'",[orgA]);
+  });
   it("valida evidência do próprio lead, recalcula cobertura e esconde evidência expirada",async()=>{
     await role("authenticated",actorA);
     const draft="select public.assess_website($1,$2,'owned',$3,'sample.example','Vínculo informado','','')";

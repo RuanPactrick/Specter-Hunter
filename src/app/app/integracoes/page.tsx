@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/domain";
 import { ButtonLink,Heading,Notice,Pairs,Panel,Tag } from "@/components/ui";
 export default async function Integrations() {
   const {db,org}=await context();
+  const ai=aiConfig();
   const since=lastDay();
   const sources=[["google_places",googleEnabled()],["brave",braveEnabled()],["official_page",readerEnabled()]] as const;
   const stats=await Promise.all(sources.map(([provider])=>db.from("provider_usage").select("created_at",{count:"exact"}).eq("organization_id",org.id).eq("provider",provider).gte("created_at",since).order("created_at",{ascending:false}).limit(1)));
@@ -18,6 +19,6 @@ export default async function Integrations() {
     const info=policies[provider];const stat=stats[i];const failed=provider==="google_places"&&lastJob?.state==="failed";const limited=provider==="google_places"&&lastJob?.state==="limit_reached";
     return <Panel key={provider} title={info.name} description={info.purpose} action={<Tag tone={!enabled?"warning":failed?"error":limited?"warning":"success"}>{!enabled?"Não configurada":failed?"Erro na última execução":limited?"Limite atingido":"Configurada"}</Tag>}>
     <div className="pad stack"><Pairs items={[["Credencial",info.credential],["Consultas reservadas em 24 h",stat.count??0],["Última reserva",formatDate(stat.data?.[0]?.created_at??null)],["Limite",info.limit],["Retenção",info.retention],["Exportação",info.export]]}/></div></Panel>;})}
-  <Panel title="IA assistiva" description="Modelos determinísticos disponíveis para abordagem e briefing." action={<Tag tone={aiConfig()?"success":""}>{aiConfig()?"OpenAI configurada":"Modelos locais"}</Tag>}><p className="pad muted">O editor usa os dados confirmados e as pendências do lead como contexto de revisão.</p></Panel>
+  <Panel title="IA assistiva" description="Organize achados, prepare abordagens e crie prompts para a prévia." action={<Tag tone={ai?"success":""}>{ai?.provider==="gemini"?"Gemini configurado":ai?"OpenAI configurada":"Modelos locais"}</Tag>}><p className="pad muted">{ai?"A IA recebe o cadastro básico da empresa e só as evidências confirmadas que você selecionar e autorizar.":"Configure a chave GEMINI_API_KEY no servidor para gerar rascunhos com o Gemini."}</p></Panel>
   <Panel title="Armazenamento privado" description="Supabase Storage com acesso limitado por organização." action={<Tag tone="info">Bucket privado</Tag>}><p className="pad muted">Links para materiais autorizados expiram em um minuto.</p></Panel></div></>;
 }

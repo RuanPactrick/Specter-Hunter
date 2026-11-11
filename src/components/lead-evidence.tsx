@@ -4,6 +4,7 @@ import { MoveForm } from "./move-form";
 import { context } from "@/lib/auth";
 import { leadPath, loadAssessment, loadContacts, loadEvidence } from "@/lib/data";
 import { Dossier, type Reading } from "./lead-dossier";
+import { LeadAssistant } from "./lead-assistant";
 import { assessSite, createEvidence, createTask, editLead, reviewEvidence, saveScore } from "@/lib/lead-actions";
 import { criteria, evidenceExpired, evidenceUsable, formatDate, reviews, score, sites, taskKinds, today, type Evidence, type Lead, type WebsiteStatus } from "@/lib/domain";
 export const confirmed = evidenceUsable;
@@ -32,6 +33,7 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
   const notes=evidence.filter(e=>!evidenceUsable(e));
   return <>{age>org.retention_days&&<Notice tone="warning">A consulta está fora do intervalo de revisão da organização. Revise a fonte antes de reutilizar os dados.</Notice>}
   <Dossier lead={lead} evidence={evidence} channels={channels} reading={reading}/>
+  <LeadAssistant lead={lead} evidence={evidence} modes={["summary"]}/>
   <div className="grid-two"><div className="stack">
     <Panel title="Próximo passo" description="Mude a etapa da negociação ou crie uma tarefa para não esquecer."><div className="pad stack"><MoveForm lead={lead} owner={owner} origin="lead"/>
       <details className="disclosure"><summary>Criar tarefa</summary><form action={createTask.bind(null,lead.id)} className="inner stack">
