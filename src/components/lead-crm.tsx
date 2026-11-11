@@ -10,6 +10,8 @@ import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
 import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { salesAngle } from "@/lib/insights";
+import { aiConfig } from "@/lib/assistive";
+import { refineMessage } from "@/lib/assistive-action";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
 
 const contactOrder=["whatsapp","phone","email","instagram","website","maps"] as const;
@@ -59,6 +61,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   // o que o robô achou e ainda não foi conferido também ajuda a conversar, marcado como "a conferir"
   const facts=evidence.filter(e=>!evidenceExpired(e)&&e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict");
   const whats=channels.find(c=>c.kind==="whatsapp"&&c.confirmed)??channels.find(c=>c.kind==="whatsapp");
+  const ai=aiConfig();
   const draft=events.data?.find(e=>e.kind==="draft");
   const activeDraft=draft && typeof draft.purpose==="string" && Object.hasOwn(purposes,draft.purpose) ? {purpose:draft.purpose as Purpose,content:String(draft.content)}:undefined;
   const previewUrl=preview&&["ready","sent","review","approved"].includes(preview.status)?preview.url:null;
@@ -66,6 +69,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   {lead.stage==="blocked"?<Notice tone="warning">Lead na lista de não contato. As ações e sugestões ficam bloqueadas até revisão pelo proprietário.</Notice>:<section className="panel pad">
   <MessageEditor sender={org.message_name} city={lead.city} preview={previewUrl} contact={whats?.confirmed?whats:undefined} draft={activeDraft} action={outreach.bind(null,lead.id)}
     facts={salesAngle(facts).hooks.map(h=>h.title.toLowerCase())}
+    refine={ai?refineMessage.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}
     unlock={whats&&!whats.confirmed?<div className="unlock"><span><strong>WhatsApp {whats.value}</strong> veio do robô e ainda não foi confirmado.</span><button className="btn small" type="submit" formAction={confirmContact.bind(null,lead.id,whats.id,true,"abordagem")} formNoValidate>Confirmar e liberar</button></div>
       :!whats?<Notice>Nenhum WhatsApp encontrado. Copie a mensagem e use telefone ou e-mail da aba Contatos.</Notice>:null}/></section>}
   <Panel title="Conversa com a empresa">{events.data?.length?events.data.map(e=><div className="row" key={e.id}><div className="min-w-0 wrap-break-word"><strong>{{draft:"Rascunho",sent:"Envio confirmado",reply:"Resposta recebida",call:"Ligação realizada"}[String(e.kind)]??"Registro"}</strong><p>{e.content}</p><p className="meta">{e.channel} · {formatDate(e.created_at)}</p></div></div>):<Empty title="Sem interações" description="Os registros aparecem aqui após salvar um rascunho ou confirmar uma interação."/>}</Panel></div>
@@ -73,7 +77,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   {facts.length?<><ul className="fact-list">{facts.slice(0,4).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>
   {facts.length>4&&<details className="disclosure"><summary>Ver mais {facts.length-4} achados</summary><div className="inner"><ul className="fact-list">{facts.slice(4).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul></div></details>}</>:<p className="muted">Peça a leitura automática no Resumo para trazer fatos atuais sobre a empresa.</p>}
   <ButtonLink href={leadPath(lead.id,"fontes")}>Revisar evidências</ButtonLink></div></Panel>
-  <LeadAssistant lead={lead} evidence={evidence} modes={["message","followup","objection","questions"]}/></div></div>
+</div></div>
   <Panel title="Oferta recomendada" description="Organize uma proposta comercial com uma evidência confirmada." className="approach-offer">{offers.data?.map(row=><div className="row !block" key={row.id}><details className="disclosure"><summary>{row.kind}</summary><div className="inner">
   <Pairs items={[["Problema",row.problem],["Evidência",verified.find(e=>e.id===row.evidence_id)?.source_label??"Revisão necessária"],["Solução",row.solution],["Benefício esperado",row.benefit],["Escopo",row.scope],["Perguntas",row.questions],["Objeções",row.objections]]}/>
   </div></details></div>)}

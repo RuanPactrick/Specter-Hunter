@@ -66,3 +66,16 @@ it("mensagens de abordagem levam o treino de especialista e a objeção da empre
   expect(sent[0].input.reply).toBe("já temos site");
   expect(sent[1].system).not.toContain("especialista em prospecção");
 });
+it("ajuste da mensagem manda o rascunho atual e o pedido do vendedor, com o treino de abordagem",async()=>{
+  let sent:{system:string;input:{current?:string;instruction?:string}}|null=null;
+  const provider=async (...args:Parameters<typeof fetch>)=>{
+    const request=JSON.parse(String(args[1]?.body));
+    sent={system:request.systemInstruction.parts[0].text,input:JSON.parse(request.contents[0].parts[0].text)};
+    return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({fact_ids:[],suggestions:[],questions:[],draft:"Versão mais curta."})}]}}]}));
+  };
+  const result=await draftWithGemini("refine",{company,observations:[],current:"Olá! Mensagem longa.",instruction:"Mais curta",purpose:"Confirmar responsável"},{key:"k",model:"m"},provider);
+  expect(result.draft).toBe("Versão mais curta.");
+  expect(sent!.input).toMatchObject({current:"Olá! Mensagem longa.",instruction:"Mais curta"});
+  expect(sent!.system).toContain("especialista em prospecção");
+  expect(sent!.system).toContain("pedido do vendedor");
+});
