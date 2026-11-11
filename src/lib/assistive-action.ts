@@ -45,7 +45,8 @@ async function refineWithAi(id:string,mode:"refine"|"refinePrompt",input:{conten
   const [{db,org},lead,records]=await Promise.all([context(),loadLead(id),loadEvidence(id)]);
   if(lead.stage==="blocked")return {error:"Empresa marcada como não contatar."};
   // fatos confirmados primeiro; achados do robô ainda não conferidos vão marcados, sem e-mails, telefones e links
-  const found=records.filter(e=>!evidenceExpired(e)&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict"&&(evidenceUsable(e)||e.provider!=="manual"));
+  const found=records.filter(e=>!evidenceExpired(e)&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict"&&(evidenceUsable(e)||e.provider!=="manual"))
+    .filter((e,i,all)=>all.findIndex(x=>x.kind===e.kind)===i);
   const ordered=[...found.filter(evidenceUsable),...found.filter(e=>!evidenceUsable(e))].slice(0,8);
   const observations=ordered.map((e,i)=>({id:String(i+1),observed:(evidenceUsable(e)?"":"(não conferido) ")+e.kind+": "+minimizeEvidence(decodeEntities(e.observed))}));
   const {summary,hooks}=salesAngle(ordered);

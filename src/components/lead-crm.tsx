@@ -59,7 +59,9 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   if(events.error||offers.error) throw new Error("Falha ao ler abordagem");
   const verified=evidence.filter(confirmed);
   // o que o robô achou e ainda não foi conferido também ajuda a conversar, marcado como "a conferir"
-  const facts=evidence.filter(e=>!evidenceExpired(e)&&e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict");
+  const facts=evidence.filter(e=>!evidenceExpired(e)&&e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict")
+    // cada nova leitura grava outra evidência do mesmo tipo: fica só a mais recente (a lista vem da mais nova para a mais antiga)
+    .filter((e,i,all)=>all.findIndex(x=>x.kind===e.kind)===i);
   const whats=channels.find(c=>c.kind==="whatsapp"&&c.confirmed)??channels.find(c=>c.kind==="whatsapp");
   const ai=aiConfig();
   const draft=events.data?.find(e=>e.kind==="draft");
