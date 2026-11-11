@@ -115,11 +115,13 @@ export async function PresenceTab({lead}:{lead:Lead}) {
   <Panel title="O que ainda falta verificar"><p className="pad">{latest?.pending||"Confirme o domínio oficial e descarte homônimos antes de classificar."}</p></Panel>
   <Panel title="Verificações externas"><div className="pad stack"><p>Abra a busca de fontes quando habilitada. A revisão da evidência continua manual.</p><ButtonLink href={"/app/verificar/"+lead.id}>Verificar fontes</ButtonLink></div></Panel>
   </div><Panel title="Registrar avaliação" description="Vincule a classificação a uma evidência confirmada." className="presence-form"><form className="pad stack" action={assessSite.bind(null,lead.id)}>
+  <div className="fields">
   <Field label="Classificação"><Select name="status" options={sites} defaultValue={lead.website_status}/></Field>
-  <Field label="Evidência" hint="A evidência deve estar vigente. Para indicar site próprio, confirme-a e informe o domínio."><Select name="evidence_id" options={evidenceOptions(items.filter(item=>!evidenceExpired(item)))} empty={items.some(item=>!evidenceExpired(item))?"Selecione":"Nenhuma evidência vigente"} required/></Field>
+  <Field label="Evidência" hint="A evidência deve estar vigente. Para indicar site próprio, confirme-a e informe o domínio." full><Select name="evidence_id" options={evidenceOptions(items.filter(item=>!evidenceExpired(item)))} empty={items.some(item=>!evidenceExpired(item))?"Selecione":"Nenhuma evidência vigente"} required/></Field>
   <Field label="Site ou domínio"><input name="website" inputMode="url" maxLength={2048} defaultValue={latest?.domain??""}/></Field>
   <Field label="Como o vínculo foi verificado"><input name="method" required maxLength={180} placeholder="Ex.: link no canal oficial"/></Field>
-  <Field label="Inferência comercial"><textarea name="inference" maxLength={1400}/></Field>
-  <Field label="Pendências"><textarea name="pending" maxLength={1400}/></Field>
+  <Field label="Inferência comercial" full><textarea name="inference" maxLength={1400}/></Field>
+  <Field label="Pendências" full><textarea name="pending" maxLength={1400}/></Field>
+  </div>
   <Submit>Registrar avaliação</Submit></form></Panel></div></section>;
 }
