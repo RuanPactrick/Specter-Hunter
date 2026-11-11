@@ -29,8 +29,9 @@ export async function requestEnrichment(id:string) {
   if(!uuid.safeParse(id).success)message(back,"Lead indisponível.");
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:[id]});
   saveError(back,error);
-  const now=data?await kickWorker():false;
-  message(back,data?(now?"Leitura na fila e robô acionado. Leva de 1 a 3 minutos.":"Leitura na fila. O robô grava evidências e contatos para revisão."):"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data));
+  // aciona o robô mesmo se a leitura já estava na fila (é o caso de "parou de andar")
+  const now=await kickWorker();
+  message(back,data?(now?"Leitura na fila e robô acionado. Leva de 1 a 3 minutos.":"Leitura na fila. O robô grava evidências e contatos para revisão."):now?"A leitura já estava na fila: robô acionado agora.":"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data)||now);
 }
 export async function requestEnrichmentAll(form:FormData) {
   const {db,org}=await context();
