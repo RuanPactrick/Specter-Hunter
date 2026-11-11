@@ -3,9 +3,15 @@ import "server-only";
  * Acorda o robô do GitHub Actions na hora (workflow_dispatch), sem esperar a rodada agendada, que o GitHub atrasa.
  * Opcional e gratuito: precisa de GITHUB_DISPATCH_TOKEN (token com permissão Actions: escrita) e GITHUB_DISPATCH_REPO (dono/repo).
  */
+/** Aceita "dono/repo", o link do GitHub ou ".git"; sem a variável, usa o repositório que a própria Vercel publica. */
+export function dispatchRepo(value = process.env.GITHUB_DISPATCH_REPO, owner = process.env.VERCEL_GIT_REPO_OWNER, slug = process.env.VERCEL_GIT_REPO_SLUG) {
+  const repo = (value ?? "").trim().replace(/^["']|["']$/g, "").replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "").replace(/\.git$/i, "").replace(/\/+$/, "");
+  if (/^[\w.-]+\/[\w.-]+$/.test(repo)) return repo;
+  return owner && slug ? owner + "/" + slug : null;
+}
 export async function kickWorker() {
-  const token = process.env.GITHUB_DISPATCH_TOKEN?.trim(), repo = process.env.GITHUB_DISPATCH_REPO?.trim();
-  if (!token || !repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return false;
+  const token = process.env.GITHUB_DISPATCH_TOKEN?.trim().replace(/^["']|["']$/g, ""), repo = dispatchRepo();
+  if (!token || !repo) { console.warn("Acionar robô: falta " + (!token ? "GITHUB_DISPATCH_TOKEN" : "GITHUB_DISPATCH_REPO no formato dono/repo") + " nesta implantação."); return false; }
   try {
     const response = await fetch("https://api.github.com/repos/" + repo + "/actions/workflows/worker.yml/dispatches", {
       method: "POST", cache: "no-store", signal: AbortSignal.timeout(5000),
