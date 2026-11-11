@@ -33,7 +33,6 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
   const notes=evidence.filter(e=>!evidenceUsable(e));
   return <>{age>org.retention_days&&<Notice tone="warning">A consulta está fora do intervalo de revisão da organização. Revise a fonte antes de reutilizar os dados.</Notice>}
   <Dossier lead={lead} evidence={evidence} channels={channels} reading={reading}/>
-  <LeadAssistant lead={lead} evidence={evidence} modes={["summary"]}/>
   <div className="summary-layout"><div className="summary-action-grid">
     <Panel title="Próximo passo" description="Atualize a etapa ou crie um lembrete." className="summary-next"><div className="pad stack"><MoveForm lead={lead} owner={owner} origin="lead"/>
       <details className="disclosure"><summary>Criar tarefa</summary><form action={createTask.bind(null,lead.id)} className="inner stack">
@@ -60,7 +59,8 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
       </form>:<ButtonLink href={leadPath(lead.id,"evidencias")}>Revisar evidências</ButtonLink>}
     </div></details></div></Panel>
   </div>
-    <Panel title="Dados comerciais" description="Informações usadas para organizar o acompanhamento desta empresa." className="summary-data"><form className="pad stack" action={editLead.bind(null,lead.id)}><div className="fields">
+    <LeadAssistant lead={lead} evidence={evidence} modes={["summary"]}/>
+    <details className="disclosure panel summary-data"><summary>Editar dados comerciais</summary><form className="inner stack summary-data-form" action={editLead.bind(null,lead.id)}><div className="fields">
       <Field label="Segmento"><input name="sector" required maxLength={100} defaultValue={lead.sector}/></Field>
       <Field label="Bairro"><input name="district" maxLength={100} defaultValue={lead.district}/></Field>
       <Field label="Endereço comercial" full><input name="address" maxLength={250} defaultValue={lead.address}/></Field>
@@ -70,7 +70,7 @@ export async function LeadSummary({lead,owners,owner}:{lead:Lead;owners:Record<s
       <Field label="Data de retorno"><input type="date" name="follow_up" defaultValue={lead.follow_up??""}/></Field>
       <Field label="Valor informado (R$)"><input name="contract_value" inputMode="decimal" maxLength={13} defaultValue={lead.contract_value??""}/></Field>
       <Field label="Observações" full><textarea name="notes" maxLength={2500} defaultValue={lead.notes}/></Field>
-    </div><Submit>Salvar dados comerciais</Submit></form></Panel>
+    </div><Submit>Salvar dados comerciais</Submit></form></details>
   </div></>;
 }
 export async function EvidenceTab({lead}:{lead:Lead}) {

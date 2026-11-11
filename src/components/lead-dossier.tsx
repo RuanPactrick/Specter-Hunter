@@ -49,6 +49,9 @@ export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evi
   const stopped = evidence.find(e => e.kind === "Pesquisa interrompida" && !evidenceExpired(e));
   const guess = evidence.find(e => e.kind === "Possível domínio" && e.review === "pending" && !evidenceExpired(e));
   const expired = [...new Set(evidence.filter(evidenceExpired).map(e => e.kind))];
+  const categorized=cards.map(card=>({...card,item:pick(card.kinds)}));
+  const found=categorized.filter(card=>card.item);
+  const missing=categorized.filter(card=>!card.item);
   const s = reading?.suggestion;
   const usable = lead.stage === "blocked" ? [] : channels.filter(c => ["whatsapp", "phone", "email"].includes(c.kind));
   return <section className="dossier" aria-label="O que encontramos sobre a empresa">
@@ -83,8 +86,12 @@ export function Dossier({ lead, evidence, channels, reading }: { lead: Lead; evi
         {usable.length > 6 && <p className="meta">E mais {usable.length - 6} na aba Contatos.</p>}
       </article>
     </div>
-    <section className="dossier-grid" aria-label="Achados por fonte">
-      {cards.map(c => <Finding key={c.title} lead={lead} title={c.title} icon={c.icon} empty={c.empty} item={pick(c.kinds)} />)}
-    </section>
+    {found.length>0&&<section className="dossier-grid" aria-label="Achados por fonte">
+      {found.map(c=><Finding key={c.title} lead={lead} title={c.title} icon={c.icon} empty={c.empty} item={c.item}/>)}
+    </section>}
+    {missing.length>0&&<details className="disclosure dossier-gaps"><summary>Ver categorias sem achados no resumo ({missing.length})</summary><div className="inner stack">
+      <ul className="list-disc pl-5">{missing.map(c=><li key={c.title}>{c.title}</li>)}</ul>
+      <Link href={leadPath(lead.id,"fontes")}>Abrir fontes e conferência</Link>
+    </div></details>}
   </section>;
 }

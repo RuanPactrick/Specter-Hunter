@@ -8,7 +8,7 @@ import { deleteLead } from "@/lib/privacy-actions";
 import { LeadAssistant } from "./lead-assistant";
 import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
-import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
+import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, outreachContacts, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
 
 const contactOrder=["whatsapp","phone","email","instagram","website","maps"] as const;
@@ -43,16 +43,17 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   const verified=evidence.filter(confirmed);
   // o que o robô achou e ainda não foi conferido também ajuda a conversar, marcado como "a conferir"
   const facts=evidence.filter(e=>!evidenceExpired(e)&&e.provider!=="manual"&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict");
-  const whats=channels.find(c=>c.kind==="whatsapp"&&c.confirmed)??channels.find(c=>c.kind==="whatsapp");
+  const outreachChannels=outreachContacts(channels);
+  const unconfirmedWhats=channels.find(c=>c.kind==="whatsapp"&&!c.confirmed);
   const draft=events.data?.find(e=>e.kind==="draft");
   const activeDraft=draft && typeof draft.purpose==="string" && Object.hasOwn(purposes,draft.purpose) ? {purpose:draft.purpose as Purpose,content:String(draft.content)}:undefined;
   const previewUrl=preview&&["ready","sent","review","approved"].includes(preview.status)?preview.url:null;
   return <div className="approach-workflow"><div className="approach-layout"><div className="stack approach-main">
-  {lead.stage==="blocked"?<Notice tone="warning">Lead na lista de não contato. As ações e sugestões ficam bloqueadas até revisão pelo proprietário.</Notice>:<Panel title="Prepare o primeiro contato" description="Escolha o objetivo, ajuste o texto e envie pelo WhatsApp. Depois registre o que aconteceu.">
-  {whats&&!whats.confirmed&&<div className="pad"><Notice tone="warning"><span>O robô achou o WhatsApp <strong>{whats.value}</strong>. Confirme que é da empresa para liberar o envio.</span>
-    <form action={confirmContact.bind(null,lead.id,whats.id,true)} className="mt-2"><input type="hidden" name="back" value="abordagem"/><Submit style="small">Confirmar este WhatsApp</Submit></form></Notice></div>}
-  {!whats&&<div className="pad"><Notice>Nenhum WhatsApp encontrado. Copie a mensagem e use telefone ou e-mail da aba Contatos.</Notice></div>}
-  <MessageEditor sender={org.message_name} city={lead.city} preview={previewUrl} contact={whats?.confirmed?whats:undefined} draft={activeDraft} action={outreach.bind(null,lead.id)}/></Panel>}
+  {lead.stage==="blocked"?<Notice tone="warning">Lead na lista de não contato. As ações e sugestões ficam bloqueadas até revisão pelo proprietário.</Notice>:<Panel title="Prepare sua abordagem" description={outreachChannels.length?"Ajuste a mensagem, abra um canal confirmado e registre o resultado manualmente.":"Confirme um canal em Contatos. Você ainda pode salvar um rascunho."}>
+  {unconfirmedWhats&&<div className="pad"><Notice tone="warning"><span>A leitura encontrou o WhatsApp <strong>{unconfirmedWhats.value}</strong>. Confirme que pertence à empresa para abrir a conversa. Outros canais podem ser confirmados em <Link href={leadPath(lead.id,"contatos")}>Contatos</Link>.</span>
+    <form action={confirmContact.bind(null,lead.id,unconfirmedWhats.id,true)} className="mt-2"><input type="hidden" name="back" value="abordagem"/><Submit style="small">Confirmar este WhatsApp</Submit></form></Notice></div>}
+  {!outreachChannels.length&&!unconfirmedWhats&&<div className="pad"><Notice tone="warning"><span>Nenhum canal confirmado. <Link href={leadPath(lead.id,"contatos")}>Confirme telefone, e-mail ou WhatsApp em Contatos.</Link> Você ainda pode salvar um rascunho.</span></Notice></div>}
+  <MessageEditor key={outreachChannels.map(c=>c.id).join("|")||"sem-canal-confirmado"} sender={org.message_name} city={lead.city} company={lead.name} preview={previewUrl} channels={outreachChannels} draft={activeDraft} action={outreach.bind(null,lead.id)}/></Panel>}
   <Panel title="Interações registradas">{events.data?.length?events.data.map(e=><div className="row" key={e.id}><div className="min-w-0 wrap-break-word"><strong>{{draft:"Rascunho",sent:"Envio confirmado",reply:"Resposta recebida",call:"Ligação realizada"}[String(e.kind)]??"Registro"}</strong><p>{e.content}</p><p className="meta">{e.channel} · {formatDate(e.created_at)}</p></div></div>):<Empty title="Sem interações" description="Os registros aparecem aqui após salvar um rascunho ou confirmar uma interação."/>}</Panel></div>
   <div className="stack approach-side"><Panel title="O que usar na conversa" description="Comece pelos fatos confirmados. Achados pendentes precisam ser conferidos."><div className="pad stack">
   {facts.length?<><ul className="fact-list">{facts.slice(0,4).map(e=><li key={e.id}><strong>{e.kind}</strong> {confirmed(e)?<Tag tone="success">Confirmado</Tag>:<Tag tone="warning">A conferir</Tag>}<p>{decodeEntities(e.observed)}</p><p className="meta">{e.source_label} · consultado em {formatDate(e.consulted_on)}</p></li>)}</ul>
