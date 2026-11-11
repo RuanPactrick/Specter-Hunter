@@ -35,7 +35,7 @@ const instructions="Você prepara material comercial em português brasileiro pa
 export function aiConfig() {
   if(process.env.ENABLE_ASSISTIVE_AI!=="true")return null;
   const geminiKey=process.env.GEMINI_API_KEY?.trim();
-  if(geminiKey)return {provider:"gemini" as const,key:geminiKey,model:process.env.GEMINI_ASSISTIVE_MODEL?.trim()||"gemini-3.1-flash-lite"};
+  if(geminiKey)return {provider:"gemini" as const,key:geminiKey,model:process.env.GEMINI_ASSISTIVE_MODEL?.trim()||geminiFallbacks[0]};
   const key=process.env.OPENAI_API_KEY;
   const model=process.env.OPENAI_ASSISTIVE_MODEL;
   return key&&model?{provider:"openai" as const,key,model}:null;
@@ -68,14 +68,31 @@ export async function draftWithOpenAI(mode:AssistiveMode,input:DraftInput,config
   if(!value)throw new Error("missing_output");
   return validateDraft(JSON.parse(value),new Set(input.observations.map(item=>item.id)));
 }
+// o modelo escolhido primeiro; se ele não existir, estiver no limite gratuito ou fora do ar, tenta o próximo
+export const geminiFallbacks=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash"];
 export async function draftWithGemini(mode:AssistiveMode,input:DraftInput,config:ModelConfig,fetcher=fetch) {
-  const response=await fetcher("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(config.model)+":generateContent",{
-    method:"POST",cache:"no-store",redirect:"error",signal:AbortSignal.timeout(18000),
-    headers:{"x-goog-api-key":config.key,"Content-Type":"application/json"},
+  const models=[...new Set([config.model,...geminiFallbacks])];
+  let failure=new Error("invalid_output");
+  for(const model of models){
+    try{return await geminiOnce(model,mode,input,config.key,fetcher);}
+    catch(cause){
+      // referência a evidência não enviada é recusa de segurança: não tenta outro modelo
+      if(cause instanceof Error&&cause.message==="invalid_evidence")throw cause;
+      // o 429 só vence se nenhum modelo responder: mostra "limite atingido" em vez de erro genérico
+      if(!(failure.message==="provider_429"))failure=cause instanceof Error?cause:new Error("invalid_output");
+    }
+  }
+  throw failure;
+}
+async function geminiOnce(model:string,mode:AssistiveMode,input:DraftInput,key:string,fetcher:typeof fetch) {
+  const response=await fetcher("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+    method:"POST",cache:"no-store",redirect:"error",signal:AbortSignal.timeout(15000),
+    headers:{"x-goog-api-key":key,"Content-Type":"application/json"},
     body:JSON.stringify({
       systemInstruction:{parts:[{text:instructions+(salesModes.has(mode)?outreach:"")+" "+tasks[mode]}]},
       contents:[{role:"user",parts:[{text:JSON.stringify(input)}]}],
-      generationConfig:{candidateCount:1,maxOutputTokens:2048,responseMimeType:"application/json",responseJsonSchema:schema}
+      // folga para os modelos que "pensam" antes de responder (o raciocínio conta no limite)
+      generationConfig:{candidateCount:1,maxOutputTokens:8192,responseMimeType:"application/json",responseJsonSchema:schema}
     })
   });
   if(!response.ok)throw new Error("provider_"+response.status);
