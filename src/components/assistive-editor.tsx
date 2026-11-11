@@ -9,6 +9,7 @@ export function AssistiveEditor({action,options,evidence,company,provider}:{acti
   const modes=Object.keys(options);
   return <div className="inner stack"><form action={submit} className="stack">
     {modes.length===1?<input type="hidden" name="mode" value={modes[0]}/>:<Field label="O que você quer gerar?"><Select name="mode" options={options}/></Field>}
+    {modes.includes("objection")&&<Field label="O que a empresa respondeu" hint="Só para responder a uma objeção. Ex.: já temos site, agora não, quanto custa?"><input name="reply" maxLength={400}/></Field>}
     <p>Cadastro enviado: <strong>{company}</strong></p>
     <fieldset><legend className="font-bold">Selecione de uma a oito evidências confirmadas</legend>{evidence.map(e=><label className="check" key={e.id}><input type="checkbox" name="evidence_id" value={e.id}/><span>{e.observed}<small className="block meta">{e.source}</small></span></label>)}</fieldset>
     <label className="check"><input type="checkbox" name="permission" required/>Autorizo enviar o cadastro acima e os trechos selecionados ao {provider}. Use apenas informações comerciais públicas, sem dados pessoais ou confidenciais.</label><Submit>Gerar rascunho</Submit>

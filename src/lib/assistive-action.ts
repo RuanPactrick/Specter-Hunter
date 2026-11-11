@@ -14,6 +14,8 @@ export async function generateAssistance(id:string,provider:"gemini"|"openai",_s
   const mode=z.enum(Object.keys(assistiveModes) as [keyof typeof assistiveModes]).safeParse(data.get("mode"));
   const selected=z.array(z.uuid()).min(1).max(8).safeParse(data.getAll("evidence_id"));
   if(!mode.success||!selected.success||data.get("permission")!=="on")return {error:"Selecione de uma a oito evidências e confirme a permissão de uso."};
+  const reply=minimizeEvidence(String(data.get("reply")??"").trim()).slice(0,400);
+  if(mode.data==="objection"&&!reply)return {error:"Escreva o que a empresa respondeu para gerar a resposta à objeção."};
   const verified=records.filter(e=>evidenceUsable(e)&&selected.data.includes(e.id));
   if(verified.length!==new Set(selected.data).size)return {error:"Uma evidência deixou de estar disponível ou confirmada."};
   const observations=verified.map((e,i)=>({id:String(i+1),observed:minimizeEvidence(decodeEntities(e.observed))}));
@@ -22,7 +24,7 @@ export async function generateAssistance(id:string,provider:"gemini"|"openai",_s
   if(reservation.error)return {error:reservation.error.code==="P2005"?"A cota de consultas da organização foi atingida. Tente mais tarde.":"Não foi possível reservar a consulta. Verifique a configuração da integração."};
   try{
     const generate=config.provider==="gemini"?draftWithGemini:draftWithOpenAI;
-    const result=await generate(mode.data,{company:assistiveCompany(lead),observations},config);
+    const result=await generate(mode.data,{company:assistiveCompany(lead),observations,...(mode.data==="objection"?{reply}:{})},config);
     return {facts:[...new Set(result.fact_ids)].flatMap(f=>{const item=observations.find(item=>item.id===f);return item?[{id:f,text:item.observed,source:sources.get(f)!}]:[];}),
       suggestions:result.suggestions.map(item=>({text:item.text,refs:[...new Set(item.evidence_ids)].map(ref=>sources.get(ref)!)})),questions:result.questions,draft:result.draft};
   }catch(error){

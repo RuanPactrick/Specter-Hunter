@@ -39,3 +39,18 @@ it("gera um prompt de site com Gemini e só aceita referências às evidências 
   await expect(draftWithGemini("brief",input,config,async()=>response({...generated,fact_ids:["2"]}))).rejects.toThrow("invalid_evidence");
   await expect(draftWithGemini("brief",input,config,async()=>response(generated,"MAX_TOKENS"))).rejects.toThrow();
 });
+it("mensagens de abordagem levam o treino de especialista e a objeção da empresa; o prompt do site não",async()=>{
+  const sent:{system:string;input:{reply?:string}}[]=[];
+  const provider=async (...args:Parameters<typeof fetch>)=>{
+    const request=JSON.parse(String(args[1]?.body));
+    sent.push({system:request.systemInstruction.parts[0].text,input:JSON.parse(request.contents[0].parts[0].text)});
+    return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({fact_ids:[],suggestions:[],questions:[],draft:"ok"})}]}}]}));
+  };
+  const config={key:"k",model:"m"},base={company,observations:[{id:"1",observed:"Nota 4,9 no Google."}]};
+  await draftWithGemini("objection",{...base,reply:"já temos site"},config,provider);
+  await draftWithGemini("brief",base,config,provider);
+  expect(sent[0].system).toContain("especialista em prospecção");
+  expect(sent[0].system).toContain("objeção do campo reply");
+  expect(sent[0].input.reply).toBe("já temos site");
+  expect(sent[1].system).not.toContain("especialista em prospecção");
+});
