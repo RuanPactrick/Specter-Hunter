@@ -190,8 +190,12 @@ describe("PostgreSQL embarcado com as migrations da aplicação",()=>{
     expect(await first("select public.reserve_enrichment_search($1,$2,gen_random_uuid(),'apify') ok",[orgA,leadA])).toEqual({ok:false});
     expect(await first("select public.enrichment_step($1,$2,$3,'Lendo o site') ok",[orgA,leadA,next.lease_token])).toEqual({ok:true});
     expect(await first("select public.enrichment_step($1,$2,gen_random_uuid(),'x') ok",[orgA,leadA])).toEqual({ok:false});
-    await role("postgres");
-    expect(await first("select step from public.enrichment_requests where lead_id=$1",[leadA])).toEqual({step:"Lendo o site"});
+    const progress="select step from public.enrichment_requests where organization_id=$1 and lead_id=$2";
+    await role("authenticated",actorA);
+    expect(await first(progress,[orgA,leadA])).toEqual({step:"Lendo o site"});
+    await expect(db.query("select lease_token from public.enrichment_requests")).rejects.toMatchObject({code:"42501"});
+    await role("authenticated",actorB);
+    expect(await first(progress,[orgA,leadA])).toBeUndefined();
     await role("service_role");
     // releitura com site no ar: troca a evidência pendente e classifica o site com a leitura confirmada
     const reread=JSON.stringify({site_status:"owned",site_url:"https://sample.example/",evidence:[{kind:"Leitura do site",observed:"O site respondeu HTTP 200.",url:"https://sample.example/"}],contacts:[],suggestion:{points:25,maximum:85}});
