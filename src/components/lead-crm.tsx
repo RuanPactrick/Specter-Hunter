@@ -2,16 +2,15 @@ import Link from "next/link";
 import { ButtonLink, Empty, Field, Notice, Pairs, Panel, SafeLink, Select, Tag } from "./ui";
 import { Submit } from "./submit";
 import { MessageEditor } from "./message-editor";
-import { CopyText } from "./copy-text";
 import { confirmed, evidenceOptions } from "./lead-evidence";
 import { deleteLead } from "@/lib/privacy-actions";
-import { LeadAssistant } from "./lead-assistant";
 import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
 import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { salesAngle } from "@/lib/insights";
 import { aiConfig } from "@/lib/assistive";
-import { refineMessage } from "@/lib/assistive-action";
+import { refineMessage, refinePrompt } from "@/lib/assistive-action";
+import { PromptEditor } from "./prompt-editor";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
 
 const contactOrder=["whatsapp","phone","email","instagram","website","maps"] as const;
@@ -113,6 +112,7 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
     "Identifique como prévia de demonstração, sem indexação, usando só materiais autorizados."
   ].filter(Boolean).join("\n");
   const sent=preview&&["sent","review","approved"].includes(preview.status);
+  const ai=aiConfig();
   return <div className="preview-flow">
   <section className="panel pad stack"><div className="list-head"><h2>Como montar a prévia</h2><span className="meta">Coletar a identidade, estudar o nicho, gerar um prompt completo e só então montar o site.</span></div>
     <ol className="flow-steps"><li className={ident?"done":"now"}><i/>1 · Identidade da empresa</li><li className={ident&&!preview?"now":preview?"done":""}><i/>2 · Referências do nicho</li><li className={preview?"done":""}><i/>3 · Prompt do site</li><li className={sent?"done":preview?"now":""}><i/>4 · Montar a prévia</li><li className={sent?"now":""}><i/>5 · Enviar e acompanhar</li></ol></section>
@@ -127,9 +127,8 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
     <div className="refs-grid"><div className="blk bad"><strong>Evitar: cara de site feito por IA</strong><ul>{avoid.map(a=><li key={a}>{a}</li>)}</ul></div>
       <div className="blk good"><strong>Diferencial desta prévia</strong>{differentials.length?<ul>{differentials.map(d=><li key={d}>{d}</li>)}</ul>:<p className="muted">Peça a leitura automática para trazer avaliações, endereço e Instagram.</p>}</div></div>
     <p className="meta">A busca automática de sites de referência do segmento ainda não está ligada.</p></section>
-  <section className="panel pad stack"><div className="list-head"><span className="step-n">3</span><div className="grow"><h2>Prompt do site</h2><p className="meta">Junta identidade, diferenciais e o que evitar num pedido para o Claude ou outro criador de sites.</p></div><span className="meta">{prompt.length} caracteres</span></div>
-    <pre className="prompt-box">{prompt}</pre><div className="actions"><CopyText value={prompt} label="Copiar prompt"/><a className="btn" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Abrir no Claude ↗</a></div>
-    <LeadAssistant lead={lead} evidence={evidence} modes={["brief","scope"]}/></section>
+  <section className="panel pad stack"><div className="list-head"><span className="step-n">3</span><div className="grow"><h2>Prompt do site</h2><p className="meta">Gerado automaticamente com tudo o que sabemos da empresa. Refine com o Gemini até ficar do seu jeito.</p></div></div>
+    <PromptEditor initial={prompt} refine={ai&&lead.stage!=="blocked"?refinePrompt.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}/></section>
   <details className="panel disclosure"><summary>Depois de montar: link da prévia, conferência, arquivos e retorno {preview&&<Tag tone="info">{previewStates[preview.status]}</Tag>}</summary><div className="inner stack">
   {preview&&<div className="row"><div><span className="meta">Criada em {formatDate(preview.created_at)}</span><br/><SafeLink url={preview.url}/></div><SafeLink url={preview.url}>Abrir prévia</SafeLink></div>}
   <form action={savePreview.bind(null,lead.id)} className="stack"><div className="fields">

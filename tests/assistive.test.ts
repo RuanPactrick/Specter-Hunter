@@ -79,3 +79,14 @@ it("ajuste da mensagem manda o rascunho atual e o pedido do vendedor, com o trei
   expect(sent!.system).toContain("especialista em prospecção");
   expect(sent!.system).toContain("pedido do vendedor");
 });
+it("refinar o prompt do site segue o pedido sem o tom de vendas",async()=>{
+  let system="";
+  const provider=async (...args:Parameters<typeof fetch>)=>{
+    system=JSON.parse(String(args[1]?.body)).systemInstruction.parts[0].text;
+    return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({fact_ids:[],suggestions:[],questions:[],draft:"Novo prompt."})}]}}]}));
+  };
+  const result=await draftWithGemini("refinePrompt",{company,observations:[],current:"Crie o site.",instruction:"Mais premium",purpose:"Prompt do site"},{key:"k",model:"m"},provider);
+  expect(result.draft).toBe("Novo prompt.");
+  expect(system).toContain("diretor de arte");
+  expect(system).not.toContain("especialista em prospecção");
+});
