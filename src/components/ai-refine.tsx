@@ -30,6 +30,6 @@ export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,n
       <button type="button" className="btn primary small" disabled={!allowed||busy||!ask.trim()} onClick={()=>run(ask)}>{busy?"Ajustando…":"Ajustar"}</button></div>
     {error&&<Notice tone="error">{error}</Notice>}
     {history.length>0&&<div className="ai-log"><span className="meta">Ajustes: {history.map(h=>h.asked).join(" → ")}</span><button type="button" className="btn small ghost" onClick={undo}><Undo2 size={14} aria-hidden="true"/>Desfazer</button></div>}
-    {tips.length>0&&<div className="chips"><span className="meta">Próximo ajuste:</span>{tips.map(t=><button key={t} type="button" className="btn small ghost" disabled={busy} onClick={()=>run(t)}>{t}</button>)}</div>}
+    {tips.length>0&&<div className="chips"><span className="meta">Próximo ajuste:</span>{tips.map(t=><button key={t} type="button" className="btn small ghost ai-tip" disabled={busy} onClick={()=>run(t)}>{t}</button>)}</div>}
   </div>;
 }
