@@ -22,7 +22,7 @@ export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,n
   function undo(){const last=history.at(-1);if(!last)return;setHistory(h=>h.slice(0,-1));onText(last.text);}
   return <div className="ai-refine">
     <div className="ai-head"><span className="ai-icon" aria-hidden="true"><Sparkles size={16}/></span><strong>Ajustar com {name}</strong><span className="meta">Peça um ajuste, ele reescreve {noun==="mensagem"?"a mensagem":"o "+noun} acima, você revisa.</span></div>
-    {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar {noun==="mensagem"?"esta mensagem":"este "+noun} e os fatos confirmados da empresa ao {name}.</label>}
+    {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar {noun==="mensagem"?"esta mensagem":"este "+noun} e os achados da empresa ao {name}.</label>}
     <div className="chips">{quick.map(q=><button key={q} type="button" className="btn small" disabled={!allowed||busy} onClick={()=>run(q)}>{q}</button>)}
       {objection&&<button type="button" className="btn small" disabled={!allowed||busy} onClick={()=>setAsk("A empresa respondeu: ")}>Responder objeção…</button>}</div>
     <div className="ai-ask"><input value={ask} disabled={!allowed||busy} onChange={e=>setAsk(e.target.value)} maxLength={400} aria-label={"Pedido de ajuste para o "+name}

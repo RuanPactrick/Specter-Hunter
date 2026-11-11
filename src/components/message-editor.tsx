@@ -27,7 +27,7 @@ export function MessageEditor({ sender,city,preview,contact,draft,action,facts=[
       <Field label="Mensagem" hint="Revise o texto e só afirme o que estiver confirmado."><textarea name="content" required maxLength={3000} rows={8} value={content} onChange={event=>setContent(event.target.value)}/></Field>
       {facts.length>0&&<div className="chips"><span className="meta">Inserir fato:</span>{facts.map(f=><button key={f} type="button" className="btn small" onClick={()=>setContent(c=>c.trimEnd()+" "+f)}>+ {f}</button>)}<span className="meta grow-right">{content.length} caracteres</span></div>}
       {refine&&<AiRefine refine={refine} name={aiName} content={content} purpose={purposes[purpose]} onText={setContent} objection
-        quick={["Melhorar a mensagem","Mais curta","Mais próxima e informal","Mais formal","Começar com um elogio"]} placeholder="Ex.: cite as 173 avaliações; a empresa respondeu: já temos site" noun="mensagem"/>}
+        quick={["Usar o melhor achado","Melhorar a mensagem","Mais curta","Mais próxima e informal","Mais formal","Começar com um elogio"]} placeholder="Ex.: cite as 173 avaliações; a empresa respondeu: já temos site" noun="mensagem"/>}
     </section>
     <section className="composer-step"><h3><span className="step-n">3</span>Envie e registre</h3>
       {unlock}

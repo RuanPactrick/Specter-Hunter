@@ -6,9 +6,10 @@ import { confirmed, evidenceOptions } from "./lead-evidence";
 import { deleteLead } from "@/lib/privacy-actions";
 import { context } from "@/lib/auth";
 import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
-import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, evidenceUsable, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
+import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { salesAngle } from "@/lib/insights";
 import { aiConfig } from "@/lib/assistive";
+import { referenceSearches, sitePrompt } from "@/lib/site-prompt";
 import { refineMessage, refinePrompt } from "@/lib/assistive-action";
 import { PromptEditor } from "./prompt-editor";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
@@ -102,17 +103,8 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
   const whats=channels.find(c=>c.kind==="whatsapp");
   const roles=["principal","apoio","destaque","fundo"];
   const differentials=[rating&&"Abrir com a nota "+rating[1]+" ("+rating[2]+" avaliações) e trechos reais das avaliações",(lead.address||maps)&&"Mostrar o endereço com mapa e “como chegar”",whats&&"Botão de WhatsApp direto no topo e no rodapé",ig&&"Usar fotos reais do Instagram, sem banco de imagens"].filter(Boolean) as string[];
-  const facts=evidence.filter(evidenceUsable);
-  const prompt=[
-    "Crie o site de "+lead.sector.toLowerCase()+": "+lead.name+", "+[lead.district,lead.city+" – "+lead.region].filter(Boolean).join(", ")+".",
-    colors.length||fonts.length?"Identidade: "+[colors.length&&"cores "+colors.map((c,i)=>c+" ("+(roles[i]??"apoio")+")").join(", "),fonts.length&&"fontes "+fonts.join(" e ")].filter(Boolean).join("; ")+". Use o logo enviado.":"Identidade: [cores e fontes da marca a confirmar]. Use o logo enviado.",
-    rating?"Abra com a nota "+rating[1]+" ("+rating[2]+" avaliações).":"",
-    "Seções: início, serviços, sobre a equipe, avaliações, como chegar e contato"+(whats?" com WhatsApp "+whats.value:"")+".",
-    facts.length?"Fatos confirmados para usar: "+facts.slice(0,6).map(e=>e.kind+": "+decodeEntities(e.observed)).join(" | "):"",
-    "Diferenciais: "+(differentials.join("; ")||"[a definir]")+".",
-    "Evite: "+avoid.join("; ").toLowerCase()+".",
-    "Identifique como prévia de demonstração, sem indexação, usando só materiais autorizados."
-  ].filter(Boolean).join("\n");
+  const prompt=sitePrompt({name:lead.name,sector:lead.sector,place:[lead.district,lead.city+" – "+lead.region].filter(Boolean).join(", "),colors,fonts,logo:Boolean(logo?.url),
+    rating:rating?[rating[1],rating[2]]:undefined,address:lead.address||undefined,whatsapp:whats?.value,instagram:Boolean(ig),facts:live});
   const sent=preview&&["sent","review","approved"].includes(preview.status);
   const ai=aiConfig();
   return <div className="preview-flow">
@@ -131,7 +123,8 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
   <section className="panel pad stack"><div className="list-head"><span className="step-n">2</span><div className="grow"><h2>Referências do nicho</h2><p className="meta">O padrão dos sites do segmento, para fazer algo diferente dele.</p></div></div>
     <div className="refs-grid"><div className="blk bad"><strong>Evitar: cara de site feito por IA</strong><ul>{avoid.map(a=><li key={a}>{a}</li>)}</ul></div>
       <div className="blk good"><strong>Diferencial desta prévia</strong>{differentials.length?<ul>{differentials.map(d=><li key={d}>{d}</li>)}</ul>:<p className="muted">Peça a leitura automática para trazer avaliações, endereço e Instagram.</p>}</div></div>
-    <p className="meta">A busca automática de sites de referência do segmento ainda não está ligada.</p></section>
+    <div className="actions"><span className="meta">Buscar referências de {lead.sector.toLowerCase()}:</span>{referenceSearches(lead.sector).map(r=><a key={r.name} className="btn small" href={r.url} target="_blank" rel="noopener noreferrer">{r.name} ↗</a>)}</div>
+    <p className="meta">Escolha 2 ou 3 que fujam do padrão, cole os links no passo 3 e anexe os prints junto com o prompt no criador de sites.</p></section>
   <section className="panel pad stack"><div className="list-head"><span className="step-n">3</span><div className="grow"><h2>Prompt do site</h2><p className="meta">Gerado automaticamente com tudo o que sabemos da empresa. Refine com o Gemini até ficar do seu jeito.</p></div></div>
     <PromptEditor initial={prompt} refine={ai&&lead.stage!=="blocked"?refinePrompt.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}/></section>
   <details className="panel disclosure"><summary>Depois de montar: link da prévia, conferência, arquivos e retorno {preview&&<Tag tone="info">{previewStates[preview.status]}</Tag>}</summary><div className="inner stack">

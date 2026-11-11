@@ -2,7 +2,8 @@
 import { z } from "zod";
 import { context } from "./auth";
 import { loadEvidence,loadLead } from "./data";
-import { decodeEntities,evidenceUsable,formatDate } from "./domain";
+import { decodeEntities,evidenceExpired,evidenceUsable,formatDate } from "./domain";
+import { salesAngle } from "./insights";
 import { aiConfig,assistiveCompany,assistiveModes,draftWithGemini,draftWithOpenAI,minimizeEvidence } from "./assistive";
 export type AssistiveState={error?:string;facts?:{id:string;text:string;source:string}[];suggestions?:{text:string;refs:string[]}[];questions?:string[];draft?:string};
 export async function generateAssistance(id:string,provider:"gemini"|"openai",_state:AssistiveState,data:FormData):Promise<AssistiveState> {
@@ -43,13 +44,17 @@ async function refineWithAi(id:string,mode:"refine"|"refinePrompt",input:{conten
   if(!parsed.success)return {error:"Escreva o texto e o que você quer ajustar."};
   const [{db,org},lead,records]=await Promise.all([context(),loadLead(id),loadEvidence(id)]);
   if(lead.stage==="blocked")return {error:"Empresa marcada como não contatar."};
-  // só fatos confirmados e vigentes, sem e-mails, telefones e links
-  const observations=records.filter(evidenceUsable).slice(0,8).map((e,i)=>({id:String(i+1),observed:minimizeEvidence(decodeEntities(e.observed))}));
+  // fatos confirmados primeiro; achados do robô ainda não conferidos vão marcados, sem e-mails, telefones e links
+  const found=records.filter(e=>!evidenceExpired(e)&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict"&&(evidenceUsable(e)||e.provider!=="manual"));
+  const ordered=[...found.filter(evidenceUsable),...found.filter(e=>!evidenceUsable(e))].slice(0,8);
+  const observations=ordered.map((e,i)=>({id:String(i+1),observed:(evidenceUsable(e)?"":"(não conferido) ")+e.kind+": "+minimizeEvidence(decodeEntities(e.observed))}));
+  const {summary,hooks}=salesAngle(ordered);
+  const angle=summary+(hooks.length?" Ganchos: "+hooks.map(h=>h.title+" ("+h.detail+")").join("; "):"");
   const reservation=await db.rpc("reserve_live_lookup",{p_org:org.id,p_provider:config.provider,p_operation:"assist",p_ref:id});
   if(reservation.error)return {error:reservation.error.code==="P2005"?"A cota de consultas da IA foi atingida. Tente mais tarde.":"Não foi possível reservar a consulta da IA."};
   try{
     const generate=config.provider==="gemini"?draftWithGemini:draftWithOpenAI;
-    const result=await generate(mode,{company:assistiveCompany(lead),observations,current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose},config);
+    const result=await generate(mode,{company:assistiveCompany(lead),observations,current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose,angle:minimizeEvidence(angle)},config);
     return result.draft.trim()?{text:result.draft.trim(),tips:result.suggestions.map(s=>s.text).slice(0,2)}:{error:"A IA não devolveu uma nova versão. Tente outro pedido."};
   }catch(error){
     return {error:error instanceof Error&&error.message==="provider_429"?"O limite gratuito da IA foi atingido. Tente em alguns minutos.":"A IA não conseguiu ajustar agora. Tente de novo."};
