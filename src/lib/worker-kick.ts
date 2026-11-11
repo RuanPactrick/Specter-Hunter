@@ -12,6 +12,7 @@ export async function kickWorker() {
       headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" },
       body: JSON.stringify({ ref: "main" }),
     });
+    if (response.status !== 204) console.warn("Acionar robô no GitHub falhou:", response.status, (await response.text().catch(() => "")).slice(0, 200));
     return response.status === 204;
-  } catch { return false; }
+  } catch (error) { console.warn("Acionar robô no GitHub falhou:", error instanceof Error ? error.message : error); return false; }
 }
