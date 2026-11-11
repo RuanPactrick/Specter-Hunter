@@ -244,6 +244,7 @@ progress{width:100%;height:9px;accent-color:var(--color-primary)}.steps{list-sty
   .dossier-head>form .btn{width:100%}
   .dossier-grid,.presence-summary,.history-admin-grid{grid-template-columns:1fr}
   .summary-data .fields{grid-template-columns:1fr}
+  .presence-form .fields{grid-template-columns:1fr}
   .contact-groups{grid-template-columns:1fr}
   .contact-row{flex-direction:column;align-items:stretch}
   .contact-row .actions{justify-content:flex-start;width:100%}
