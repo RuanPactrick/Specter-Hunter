@@ -44,12 +44,12 @@ it("se um modelo do Gemini não existe ou está no limite, tenta o próximo",asy
   const tried:string[]=[];
   const provider=async (...args:Parameters<typeof fetch>)=>{
     const model=String(args[0]).split("/models/")[1].split(":")[0];tried.push(model);
-    return model==="gemini-2.5-flash-lite"?new Response(ok):new Response("{}",{status:model==="modelo-sumido"?404:429});
+    return model==="gemini-3.8-flash"?new Response(ok):new Response("{}",{status:model==="modelo-sumido"?404:429});
   };
   const input={company,observations:[{id:"1",observed:"x"}]};
   expect((await draftWithGemini("message",input,{key:"k",model:"modelo-sumido"},provider)).draft).toBe("ok");
-  expect(tried).toEqual(["modelo-sumido","gemini-2.5-flash","gemini-2.5-flash-lite"]);
-  await expect(draftWithGemini("message",input,{key:"k",model:"gemini-2.5-flash"},async()=>new Response("{}",{status:429}))).rejects.toThrow("provider_429");
+  expect(tried).toEqual(["modelo-sumido","gemini-3.6-flash","gemini-3.8-flash"]);
+  await expect(draftWithGemini("message",input,{key:"k",model:"gemini-3.6-flash"},async()=>new Response("{}",{status:429}))).rejects.toThrow("provider_429");
 });
 it("mensagens de abordagem levam o treino de especialista e a objeção da empresa; o prompt do site não",async()=>{
   const sent:{system:string;input:{reply?:string}}[]=[];

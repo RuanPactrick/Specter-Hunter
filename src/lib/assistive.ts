@@ -69,7 +69,8 @@ export async function draftWithOpenAI(mode:AssistiveMode,input:DraftInput,config
   return validateDraft(JSON.parse(value),new Set(input.observations.map(item=>item.id)));
 }
 // o modelo escolhido primeiro; se ele não existir, estiver no limite gratuito ou fora do ar, tenta o próximo
-export const geminiFallbacks=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash"];
+// modelos estáveis da API do Gemini (aistudio.google.com/docs/models, nov/2026); 2.0 foi desligado e 2.5 está obsoleto
+export const geminiFallbacks=["gemini-3.6-flash","gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.1-flash-lite"];
 export async function draftWithGemini(mode:AssistiveMode,input:DraftInput,config:ModelConfig,fetcher=fetch) {
   const models=[...new Set([config.model,...geminiFallbacks])];
   let failure=new Error("invalid_output");
