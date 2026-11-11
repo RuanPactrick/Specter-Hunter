@@ -26,7 +26,7 @@ async function apifyRun<T>(actor: string, input: unknown, schema: z.ZodType<T>, 
 const text = z.string().max(5000).nullish();
 const profileSchema = z.array(z.object({
   username: text, fullName: text, followersCount: z.number().nullish(), followsCount: z.number().nullish(), postsCount: z.number().nullish(),
-  verified: z.boolean().nullish(), isBusinessAccount: z.boolean().nullish(), businessCategoryName: text, biography: text, externalUrl: text, error: text,
+  verified: z.boolean().nullish(), isBusinessAccount: z.boolean().nullish(), businessCategoryName: text, biography: text, externalUrl: text, error: text, profilePicUrl: text, profilePicUrlHD: text,
   latestPosts: z.array(z.object({ timestamp: text, likesCount: z.number().nullish(), commentsCount: z.number().nullish() })).max(50).nullish(),
 })).max(5);
 export type RawProfile = z.output<typeof profileSchema>[number];
@@ -34,7 +34,7 @@ export const apifyProfile = async (user: string, token: string, fetcher = fetch)
   (await apifyRun("apify~instagram-profile-scraper", { usernames: [user] }, profileSchema, token, fetcher)).find(p => p.username?.toLowerCase() === user) ?? null;
 
 export type Profile = { user: string; name: string | null; followers: number; posts: number | null; bio: string | null; link: string | null;
-  lastPost: string | null; idleDays: number | null; posts30: number; likes: number | null; comments: number | null };
+  lastPost: string | null; idleDays: number | null; posts30: number; likes: number | null; comments: number | null; pic?: string | null };
 /** O perfil cru vira o que a prospecção usa. `null` se não existe ou é privado. */
 export function summarizeProfile(p: RawProfile | null, now = Date.now()): Profile | null {
   if (!p || p.error || p.followersCount == null || !p.username) return null;
@@ -43,7 +43,8 @@ export function summarizeProfile(p: RawProfile | null, now = Date.now()): Profil
   const avg = (k: "likesCount" | "commentsCount") => { const v = posts.map(x => x[k]).filter((n): n is number => n != null && n >= 0); return v.length ? Math.round(v.reduce((s, n) => s + n, 0) / v.length) : null; };
   return { user: p.username.toLowerCase(), name: cut(p.fullName, 200) || null, followers: p.followersCount, posts: p.postsCount ?? null, bio: cut(p.biography, 500) || null,
     link: p.externalUrl || null, lastPost: last, idleDays: last ? Math.floor((now - Date.parse(last)) / day) : null,
-    posts30: posts.filter(x => now - Date.parse(x.timestamp!) <= 30 * day).length, likes: avg("likesCount"), comments: avg("commentsCount") };
+    posts30: posts.filter(x => now - Date.parse(x.timestamp!) <= 30 * day).length, likes: avg("likesCount"), comments: avg("commentsCount"),
+    pic: [p.profilePicUrlHD, p.profilePicUrl].find(u => u && /^https:\/\//.test(u)) ?? null };
 }
 
 /** O @ que veio da pesquisa é mesmo da empresa? Marca no @ ou no nome/bio, o site no link da bio ou o telefone na bio. */
@@ -121,7 +122,11 @@ export async function socialLead(lead: { name: string; phones: string[] }, insta
     else if (fromSearch && !profileMatches(p, lead.name, domain, lead.phones)) {
       dropped = true;
       evidence.push({ kind: "Instagram descartado", observed: "O perfil @" + user + " achado na pesquisa (" + (p.name ?? "sem nome") + ") não mostra a marca, o site nem o telefone da empresa.", url: "https://www.instagram.com/" + user, excerpt: null });
-    } else evidence.push({ kind: "Perfil do Instagram", observed: "@" + user + ": " + explainProfile(p), url: "https://www.instagram.com/" + user, excerpt: p.bio ? cut(p.bio, 300) : null });
+    } else {
+      evidence.push({ kind: "Perfil do Instagram", observed: "@" + user + ": " + explainProfile(p), url: "https://www.instagram.com/" + user, excerpt: p.bio ? cut(p.bio, 300) : null });
+      // a foto do perfil costuma ser o logo; o link do Instagram expira em alguns dias
+      if (p.pic) evidence.push({ kind: "Logo", observed: "Foto do perfil do Instagram @" + user + " (costuma ser o logo da empresa).", url: p.pic, excerpt: null });
+    }
   }
   const rawAds = await deps.ads(lead.name);
   const ads = rawAds ? summarizeAds(rawAds, lead.name, domain, dropped ? null : user) : null;

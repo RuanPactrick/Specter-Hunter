@@ -93,7 +93,9 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
   const [preview,evidence,channels]=await Promise.all([loadPreview(lead.id),loadEvidence(lead.id),loadContacts(lead.id)]);
   const live=evidence.filter(e=>!evidenceExpired(e)&&e.review!=="inconclusive"&&e.review!=="conflict");
   const find=(k:string)=>live.find(e=>e.kind===k);
-  const ident=find("Identidade visual"),maps=find("Google Maps"),ig=find("Perfil do Instagram");
+  const ident=find("Identidade visual"),maps=find("Google Maps"),ig=find("Perfil do Instagram"),logo=find("Logo");
+  const blockedSite=/não permite leitura/.test(find("Leitura do site")?.observed??"");
+  const noBrand=blockedSite?"O site bloqueia leitura automática. Peça à empresa ou pegue do Instagram.":null;
   const colors=ident?.observed.match(/#[0-9A-F]{6}/gi)??[];
   const fonts=ident?.observed.match(/Fontes: ([^.]+)\./)?.[1].split(/,\s*/)??[];
   const rating=maps?.observed.match(/nota ([\d,]+) com (\d+) avalia/);
@@ -118,8 +120,11 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
     <ol className="flow-steps"><li className={ident?"done":"now"}><i/>1 · Identidade da empresa</li><li className={ident&&!preview?"now":preview?"done":""}><i/>2 · Referências do nicho</li><li className={preview?"done":""}><i/>3 · Prompt do site</li><li className={sent?"done":preview?"now":""}><i/>4 · Montar a prévia</li><li className={sent?"now":""}><i/>5 · Enviar e acompanhar</li></ol></section>
   <section className="panel pad stack"><div className="list-head"><span className="step-n">1</span><div className="grow"><h2>Identidade da empresa</h2><p className="meta">Coletado do site e do Google Maps. Ajuste o que estiver errado antes de gerar o prompt.</p></div></div>
     <div className="identity-grid">
-      <article className="blk"><div className="blk-h"><strong>Cores</strong><span className="meta">site</span></div>{colors.length?<div className="swatches">{colors.map((c,i)=><div key={c} className="sw"><i style={{background:c}}/><b>{c}</b><span>{roles[i]??"apoio"}</span></div>)}</div>:<p className="muted">Não encontradas no site. Peça as cores à empresa ou use as do logo.</p>}</article>
-      <article className="blk"><div className="blk-h"><strong>Fontes</strong><span className="meta">site</span></div>{fonts.length?fonts.map((f,i)=><div key={f} className="font-row"><span style={{fontFamily:f}}>{f}</span><span className="meta">{i?"textos":"títulos"}</span></div>):<p className="muted">Não encontradas no site.</p>}</article>
+      <article className="blk"><div className="blk-h"><strong>Logo</strong><span className="meta">{logo?(/instagram/i.test(logo.observed)?"Instagram":"site"):"site e Instagram"}</span></div>{logo?.url?<div className="logo-row">
+        {/* eslint-disable-next-line @next/next/no-img-element -- imagem externa (site ou Instagram), sem otimização do Next */}
+        <img src={logo.url} alt={"Logo de "+lead.name} referrerPolicy="no-referrer"/><a href={logo.url} target="_blank" rel="noopener noreferrer" className="meta-link">Abrir imagem ↗</a></div>:<p className="muted">Não encontrado. Peça o logo à empresa.</p>}</article>
+      <article className="blk"><div className="blk-h"><strong>Cores</strong><span className="meta">site</span></div>{colors.length?<div className="swatches">{colors.map((c,i)=><div key={c} className="sw"><i style={{background:c}}/><b>{c}</b><span>{roles[i]??"apoio"}</span></div>)}</div>:<p className="muted">{noBrand??"Não encontradas no site. Peça as cores à empresa ou use as do logo."}</p>}</article>
+      <article className="blk"><div className="blk-h"><strong>Fontes</strong><span className="meta">site</span></div>{fonts.length?fonts.map((f,i)=><div key={f} className="font-row"><span style={{fontFamily:f}}>{f}</span><span className="meta">{i?"textos":"títulos"}</span></div>):<p className="muted">{noBrand??"Não encontradas no site."}</p>}</article>
       <article className="blk"><div className="blk-h"><strong>Endereço e referências</strong><span className="meta">Google Maps</span></div><p>{lead.address||"Endereço não informado"}</p></article>
       <article className="blk"><div className="blk-h"><strong>Tom e diferenciais</strong><span className="meta">avaliações</span></div><p>{rating?"Nota "+rating[1]+" com "+rating[2]+" avaliações no Google.":"Sem avaliações coletadas."}</p><p className="meta">{rating&&Number(rating[1].replace(",","."))>=4.5?"Tom sugerido: confiável e acolhedor.":"Defina o tom com a empresa."}</p></article>
     </div></section>

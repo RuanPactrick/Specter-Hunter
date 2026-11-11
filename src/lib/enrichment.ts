@@ -55,10 +55,10 @@ export function marketing(html: string, year = new Date().getFullYear()): Market
   return { pixel_meta, pixel_google, mobile, whatsapp_button, copyright, outdated: !mobile || (copyright !== null && copyright <= year - 2) };
 }
 
-export type Identity = { colors: string[]; fonts: string[] };
+export type Identity = { colors: string[]; fonts: string[]; logo?: string | null };
 const genericFonts = /^(inherit|initial|unset|sans-serif|serif|monospace|cursive|system-ui|-apple-system|blinkmacsystemfont|arial|helvetica|helvetica neue|segoe ui|roboto|times new roman|times|georgia|verdana|tahoma|ui-sans-serif|ui-serif|apple color emoji|segoe ui emoji|var\(.*)$/i;
 /** Cores e fontes da marca. shortcut: só lê o HTML da página inicial (inline e <style>), não os .css externos; ler o CSS se as cores vierem vazias com frequência. */
-export function identity(html: string): Identity {
+export function identity(html: string, base?: string): Identity {
   const hex = (h: string) => { const v = h.slice(1).toLowerCase(); return "#" + (v.length === 3 ? v.split("").map(c => c + c).join("") : v).toUpperCase(); };
   const gray = (h: string) => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); return Math.max(r, g, b) - Math.min(r, g, b) < 18; };
   const count = new Map<string, number>();
@@ -69,7 +69,18 @@ export function identity(html: string): Identity {
   const fonts = new Set<string>();
   for (const m of html.matchAll(/fonts\.googleapis\.com\/css2?\?[^"'>]*/gi)) for (const f of m[0].matchAll(/family=([^:&;"']+)/g)) fonts.add(decodeURIComponent(f[1].replace(/\+/g, " ")));
   for (const m of html.matchAll(/font-family\s*:\s*([^;}"]+)/gi)) { const first = m[1].split(",")[0].trim().replace(/^['"]|['"]$/g, ""); if (first && !genericFonts.test(first) && first.length < 40) fonts.add(first); }
-  return { colors, fonts: [...fonts].slice(0, 3) };
+  return { colors, fonts: [...fonts].slice(0, 3), logo: base ? siteLogo(html, base) : null };
+}
+/** Logo do site: imagem com "logo" no nome, classe ou alt; senão o ícone grande (apple-touch-icon) ou o favicon. */
+export function siteLogo(html: string, base: string) {
+  const abs = (href?: string) => { if (!href) return null; try { const u = new URL(href.trim(), base); return /^https?:$/.test(u.protocol) ? u.href : null; } catch { return null; } };
+  const attr = (tag: string, name: string) => tag.match(new RegExp(name + "\\s*=\\s*[\"']([^\"']+)[\"']", "i"))?.[1];
+  const img = [...html.matchAll(/<img\b[^>]*>/gi)].map(m => m[0]).find(t => /logo/i.test((attr(t, "src") ?? "") + " " + (attr(t, "alt") ?? "") + " " + (attr(t, "class") ?? "") + " " + (attr(t, "id") ?? "")));
+  const src = img && (attr(img, "src") ?? attr(img, "data-src"));
+  if (src && !src.startsWith("data:")) return abs(src);
+  const link = (rel: RegExp) => [...html.matchAll(/<link\b[^>]*>/gi)].map(m => m[0]).find(t => rel.test(attr(t, "rel") ?? ""));
+  const touch = link(/apple-touch-icon/i), icon = link(/(^|\s)icon(\s|$)/i);
+  return abs(touch && attr(touch, "href")) ?? abs(icon && attr(icon, "href"));
 }
 
 function merge(a: Found, b: Found): Found {
@@ -106,7 +117,7 @@ export async function readSite(domain: string, read = readPublicPage): Promise<S
       // páginas internas (contato, sobre) em paralelo
       for (const inner of await Promise.all(internalLinks(page.html, page.url).map(link => read(link, agent).catch(() => null))))
         if (inner?.html && inner.status < 400) found = merge(found, extract(inner.html));
-      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html), identity: identity(page.html) };
+      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html), identity: identity(page.html, page.url) };
     } catch (cause) { error = cause instanceof Error ? cause.message : "falha"; }
   }
   return { ok: false, error, ...(blockedAt && error.startsWith("HTTP") ? { url: blockedAt } : {}) };
@@ -177,6 +188,7 @@ export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   const level = opportunity(site.marketing);
   evidence.push({ kind: "Sinais de marketing", observed: "Página inicial: " + explainMarketing(site.marketing) + ". Oportunidade sugerida: " + level + ".", url: site.url, excerpt: null });
   const id = site.identity;
+  if (id?.logo) evidence.push({ kind: "Logo", observed: "Logo encontrado no site.", url: id.logo, excerpt: null });
   if (id && (id.colors.length || id.fonts.length)) evidence.push({ kind: "Identidade visual", observed: [id.colors.length && "Cores: " + id.colors.join(", ") + ".", id.fonts.length && "Fontes: " + id.fonts.join(", ") + "."].filter(Boolean).join(" "), url: site.url, excerpt: null });
   return { evidence, contacts, suggestion: suggest(site, extra), site_status: "owned" as const, site_url: site.url };
 }

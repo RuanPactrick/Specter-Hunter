@@ -9,6 +9,7 @@ import { apifyMaps, placeToLead } from "../src/lib/maps";
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!key)throw new Error("Configure a URL do Supabase e a chave service role no processo do worker.");
+if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url))console.error("Aviso: a URL do Supabase deveria ser https://<projeto>.supabase.co (confira o secret SUPABASE_URL).");
 const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 if(process.env.ENABLE_APIFY==="true"&&!process.env.APIFY_TOKEN){console.error("ENABLE_APIFY ligado sem APIFY_TOKEN: o Apify fica desligado nesta execução.");process.env.ENABLE_APIFY="false";}
 let stopping=false;
@@ -132,7 +133,12 @@ async function enrich(item:Enrichment){
     result=enrichmentPayload(current??{ok:false,error:"sem domínio informado e nenhum site confirmado na pesquisa"},
       {...research?.extra,instagram:Boolean(siteInsta)||(Boolean(research?.extra.instagram)&&!social?.dropped),ads:Boolean(social?.adsActive)});
     if(research)result.evidence.push(...research.evidence);
-    if(social)result.evidence.push(...social.evidence);
+    // logo do Instagram entra logo depois da leitura do site, para não ser cortado pelo limite de evidências
+    if(social){
+      const current=result;
+      current.evidence.splice(1,0,...social.evidence.filter(e=>e.kind==="Logo"&&!current.evidence.some(x=>x.kind==="Logo")));
+      current.evidence.push(...social.evidence.filter(e=>e.kind!=="Logo"));
+    }
     result.contacts.push(...contacts);
     const why={quota:"A cota diária de pesquisas da leitura automática acabou.",provider:"O motor de pesquisa ("+provider+") recusou ou não respondeu; confira a chave e o crédito."} as const;
     if(stopped)result.evidence.push({kind:"Pesquisa interrompida",observed:why[stopped as keyof typeof why]+" O que faltou pode ser pedido de novo depois.",url:null,excerpt:null});
@@ -170,4 +176,5 @@ async function main(){
     }
   }
 }
-void main().catch(()=>{process.exitCode=1;});
+// mostra o motivo no log (sem dados sensíveis) em vez de só "exit code 1"
+void main().catch(error=>{console.error("Worker parou:",error instanceof Error?error.message:String(error));process.exitCode=1;});

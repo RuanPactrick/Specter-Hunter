@@ -1,4 +1,5 @@
 "use server";
+import { kickWorker } from "./worker-kick";
 import { z } from "zod";
 import { context } from "./auth";
 import { loadLead } from "./data";
@@ -18,7 +19,8 @@ export async function startResearch(data:FormData) {
   const {data:id,error}=await db.rpc("enqueue_research",{p_org:org.id,p_request:f.request_id,p_city:f.city,p_region:f.region,p_districts:f.districts,p_segment:f.segment,p_desired:f.desired,p_max_queries:f.max_queries,p_skip_seen:f.skip_seen});
   saveError(path,error);
   if(typeof id!=="string")message(path,"Não foi possível iniciar a pesquisa.");
-  message(path+"/"+id,"Pesquisa registrada. O worker processará a fila.",true);
+  const now=await kickWorker();
+  message(path+"/"+id,now?"Pesquisa registrada. O robô já foi acionado.":"Pesquisa registrada. O robô processará a fila.",true);
 }
 export async function requestEnrichment(id:string) {
   const {db,org}=await context();
@@ -27,7 +29,8 @@ export async function requestEnrichment(id:string) {
   if(!uuid.safeParse(id).success)message(back,"Lead indisponível.");
   const {data,error}=await db.rpc("request_enrichment",{p_org:org.id,p_leads:[id]});
   saveError(back,error);
-  message(back,data?"Leitura do site na fila. O worker grava evidências e contatos para revisão.":"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data));
+  const now=data?await kickWorker():false;
+  message(back,data?(now?"Leitura na fila e robô acionado. Leva de 1 a 3 minutos.":"Leitura na fila. O robô grava evidências e contatos para revisão."):"Informe o domínio do lead ou aguarde a leitura em andamento.",Boolean(data));
 }
 export async function requestEnrichmentAll(form:FormData) {
   const {db,org}=await context();
@@ -37,6 +40,7 @@ export async function requestEnrichmentAll(form:FormData) {
   // só empresas nunca lidas; sem pesquisa na web, só quem tem domínio tem o que ler
   const {data,error}=await db.rpc("request_enrichment_batch",{p_org:org.id,p_limit:limit,p_need_domain:!searchEnabled()});
   saveError(back,error);
+  if(data)await kickWorker();
   message(back,data?data+" empresas entraram na fila de leitura do site.":"Nenhuma empresa nova para ler: todas já foram lidas ou estão sem domínio.",Boolean(data));
 }
 export async function cancelResearch(id:string) {

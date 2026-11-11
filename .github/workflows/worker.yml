@@ -20,14 +20,25 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
         # sem as chaves cadastradas, a rodada termina em silêncio em vez de falhar a cada 5 minutos
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "Chaves do Supabase não cadastradas nos Secrets do repositório; nada a fazer."
             echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # confere o formato sem mostrar os valores
+          ok=true
+          if ! printf '%s' "$SUPABASE_URL" | grep -Eq '^https://[a-z0-9-]+\.supabase\.co/?$'; then
+            echo "::error::O secret SUPABASE_URL deve ser exatamente https://<projeto>.supabase.co (sem espaços, aspas ou /dashboard)."; ok=false
+          fi
+          if ! printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | grep -Eq '^(sb_secret_|eyJ)[A-Za-z0-9._-]+$'; then
+            echo "::error::O secret SUPABASE_SERVICE_ROLE_KEY deve ser a chave secreta (começa com sb_secret_ ou eyJ), sem espaços ou aspas."; ok=false
+          fi
+          if [ -z "$APIFY_TOKEN" ]; then echo "::warning::APIFY_TOKEN não cadastrado: a leitura roda sem pesquisa no Google, Instagram e anúncios."; fi
+          echo "ready=$ok" >> "$GITHUB_OUTPUT"
+          [ "$ok" = true ]
       - uses: actions/checkout@v4
         if: steps.keys.outputs.ready == 'true'
       - uses: actions/setup-node@v4

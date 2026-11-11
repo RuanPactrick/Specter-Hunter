@@ -25,4 +25,8 @@ O arquivo `.github/workflows/worker.yml` roda o worker a cada 5 minutos em modo 
 
 Cadastre em **Settings → Secrets and variables → Actions** do repositório: **SUPABASE_URL**, **SUPABASE_SERVICE_ROLE_KEY** e **APIFY_TOKEN**. Sem as duas chaves do Supabase, a rodada termina sem fazer nada. Para rodar na hora, use **Actions → Worker (rodada agendada) → Run workflow**.
 
+Na prática o GitHub atrasa muito as rodadas de 5 em 5 minutos (pode passar horas sem rodar). Para a leitura começar na hora em que você clica em "Ler", cadastre na Vercel **GITHUB_DISPATCH_TOKEN** (token *fine-grained* do GitHub, só deste repositório, com permissão **Actions: Read and write**) e **GITHUB_DISPATCH_REPO=RuanPactrick/Specter-Hunter**. O app aciona o workflow na hora; continua gratuito.
+
+Se a rodada falhar, a etapa "Conferir as chaves" diz qual secret está com formato errado (sem mostrar o valor): **SUPABASE_URL** tem de ser exatamente `https://<projeto>.supabase.co`.
+
 No site (Vercel), bastam **ENABLE_APIFY=true** e **ENABLE_OFFICIAL_PAGE_READING=true** para mostrar a busca no Maps e o Ler sites. O token do Apify e a chave service role ficam só no GitHub.

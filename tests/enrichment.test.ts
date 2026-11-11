@@ -51,7 +51,16 @@ describe("Identidade visual do site",()=>{
     const { identity }=await import("../src/lib/enrichment");
     const html=`<meta name="theme-color" content="#0e4d6e"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
 <style>h1{color:#29A9E0;font-family:'Montserrat',sans-serif}p{color:#333333;font-family:Arial}a{background:#f4b400}.x{color:#29a9e0}</style>`;
-    expect(identity(html)).toEqual({colors:["#0E4D6E","#29A9E0","#F4B400"],fonts:["Montserrat","Open Sans"]});
-    expect(identity("<p>nada</p>")).toEqual({colors:[],fonts:[]});
+    expect(identity(html)).toEqual({colors:["#0E4D6E","#29A9E0","#F4B400"],fonts:["Montserrat","Open Sans"],logo:null});
+    expect(identity("<p>nada</p>")).toEqual({colors:[],fonts:[],logo:null});
+  });
+});
+describe("Logo",()=>{
+  it("acha o logo no site (imagem com logo, depois ícone) e resolve o endereço",async()=>{
+    const { siteLogo }=await import("../src/lib/enrichment");
+    expect(siteLogo(`<img src="/banner.jpg"><img class="site-logo" src="/img/marca.png">`,"https://clinica.com.br/")).toBe("https://clinica.com.br/img/marca.png");
+    expect(siteLogo(`<link rel="icon" href="/favicon.ico"><link rel="apple-touch-icon" href="https://cdn.x.com/a.png">`,"https://clinica.com.br/")).toBe("https://cdn.x.com/a.png");
+    expect(siteLogo(`<img src="data:image/png;base64,AAA" alt="logo"><link rel="shortcut icon" href="ico.png">`,"https://c.com.br/p/")).toBe("https://c.com.br/p/ico.png");
+    expect(siteLogo(`<p>sem</p>`,"https://c.com.br/")).toBeNull();
   });
 });
