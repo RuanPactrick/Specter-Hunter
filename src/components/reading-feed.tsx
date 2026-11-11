@@ -42,7 +42,7 @@ export function ReadingFeed() {
       {!active && <button type="button" className="btn small" onClick={() => setHidden(true)}>Ocultar</button>}
     </header>
     <div className="reading-bar" role="progressbar" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={ended.length}><span style={{ width: (ended.length / items.length) * 100 + "%" }} /></div>
-    {stalled && <p className="reading-note"><Clock size={14} aria-hidden="true" /> Aguardando o robô começar. Ele confere a fila a cada 5 minutos e lê uma empresa por vez, de 1 a 3 minutos cada.</p>}
+    {stalled && <p className="reading-note"><Clock size={14} aria-hidden="true" /> Aguardando o robô começar. Ele confere a fila a cada minuto e lê uma empresa por vez, de 1 a 3 minutos cada.</p>}
     <ol className="reading-list">
       {running.map(i => <li key={i.id} className="now"><LoaderCircle size={16} className="spin" aria-hidden="true" />
         <div><strong>Lendo agora: {i.name}</strong><span>{i.step ?? "Começando a leitura"}…</span></div></li>)}

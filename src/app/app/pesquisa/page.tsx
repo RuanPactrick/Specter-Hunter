@@ -7,6 +7,8 @@ import { StateCity } from "@/components/state-city";
 import { startResearch } from "@/lib/research-actions";
 import { Submit } from "@/components/submit";
 import { ButtonLink,Empty,Field,Flash,Heading,Notice,Panel,Tag,type Search } from "@/components/ui";
+// as ações desta página processam a fila logo depois do clique (after)
+export const maxDuration=300;
 export const metadata={title:"Nova pesquisa"};
 export default async function ResearchPage({searchParams}:{searchParams:Promise<Search>}) {
   const {db,org}=await context();

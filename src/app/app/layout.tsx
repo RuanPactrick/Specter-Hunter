@@ -16,7 +16,7 @@ export default async function Workspace({ children }:{children:React.ReactNode})
   return <div className="app-shell"><aside className="sidebar">
     <Link href="/app" aria-label="Specter Hunter, início"><Brand/></Link>
     <DesktopNav badges={{"/app/oportunidades":leads.count??0,"/app/tarefas":tasks.count??0}}/>
-    <div className="robot-status"><span className={"dot"+(queue.count?" busy":"")}/><div><strong>{queue.count?"Robô trabalhando":"Robô ativo"}</strong><p className="meta">{queue.count?queue.count+(queue.count===1?" empresa":" empresas")+" na fila · roda a cada 5 min":"Fila vazia · roda a cada 5 min"}</p></div></div>
+    <div className="robot-status"><span className={"dot"+(queue.count?" busy":"")}/><div><strong>{queue.count?"Robô trabalhando":"Robô ativo"}</strong><p className="meta">{queue.count?queue.count+(queue.count===1?" empresa":" empresas")+" na fila · confere a cada minuto":"Fila vazia · confere a cada minuto"}</p></div></div>
     <div className="profile"><Avatar name={org.message_name}/><div><strong>{org.message_name}</strong><p className="meta">{role==="owner"?"Proprietário":"Membro"}</p></div><form action={logout}><button className="btn icon small" type="submit" aria-label="Sair"><LogOut size={16} aria-hidden="true"/></button></form></div>
   </aside><div className="min-w-0">
     <header className="topbar"><Breadcrumb/><form action="/app/oportunidades" className="top-search" aria-label="Busca geral"><label className="search-field"><Search size={16} aria-hidden="true"/><input name="q" type="search" aria-label="Busca geral" placeholder="Busca geral" maxLength={100}/></label><button className="sr-only" type="submit">Buscar</button></form>

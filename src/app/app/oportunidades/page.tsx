@@ -9,6 +9,8 @@ import { StateCity } from "@/components/state-city";
 import { LeadTable } from "@/components/lead-table";
 import { Submit } from "@/components/submit";
 import { requestEnrichmentAll } from "@/lib/research-actions";
+// as ações desta página processam a fila logo depois do clique (after)
+export const maxDuration=300;
 export const metadata={title:"Oportunidades"};
 export default async function Opportunities({ searchParams }:{searchParams:Promise<Search>}) {
   const params=await searchParams;

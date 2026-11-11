@@ -64,7 +64,7 @@ export function Findings({ lead, evidence, reading }: { lead: Lead; evidence: Ev
   const stopped = evidence.find(e => e.kind === "Pesquisa interrompida" && !evidenceExpired(e));
   const expired = [...new Set(evidence.filter(evidenceExpired).map(e => e.kind))];
   const status = reading?.state === "running" ? "Lendo agora: " + (reading.step ?? "começando") + "…"
-    : reading?.state === "pending" ? "Na fila de leitura. O robô começa em até 5 minutos."
+    : reading?.state === "pending" ? "Na fila de leitura. O robô começa em até 1 minuto."
     : reading?.state === "failed" ? "A última leitura falhou: " + (readingErrors[reading.error_code ?? ""] ?? reading.error_code) + "."
     : !reading ? "O robô ainda não leu esta empresa. Use “Ler de novo” no topo." : null;
   return <section className="findings" aria-label="O que encontramos">

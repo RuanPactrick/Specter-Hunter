@@ -19,7 +19,16 @@ Com **ENABLE_OFFICIAL_PAGE_READING=true** no processo do worker, quando não há
 
 Com **ENABLE_APIFY=true** e **APIFY_TOKEN** (preferido) ou **ENABLE_BRAVE_SEARCH=true** e **BRAVE_SEARCH_API_KEY** também no processo do worker, a leitura pesquisa na web o site, o Instagram e o CNPJ que faltarem, e lead sem domínio também pode ser lido. Cada busca é reservada no banco antes da chamada. Quando a cota acaba, o lead é gravado com o que já foi achado e uma evidência avisando.
 
-## Rodar de graça no GitHub Actions
+## Na Vercel (padrão)
+
+O robô roda dentro da própria Vercel, sem servidor à parte:
+
+- **Logo depois do clique** em Ler, Ler sites ou Nova pesquisa, a ação processa a fila em segundo plano (`after` do Next, até 300 s).
+- **Vercel Cron a cada minuto** chama `/api/worker` (`vercel.json`) para o que ficou na fila. A rota só aceita o Vercel, que manda `Authorization: Bearer CRON_SECRET`.
+
+Cadastre na Vercel (**Settings → Environment Variables**, Production): **SUPABASE_SERVICE_ROLE_KEY**, **APIFY_TOKEN** e **CRON_SECRET** (texto aleatório longo, por exemplo gerado com `openssl rand -hex 32`). Depois faça Redeploy. As filas usam lease no banco, então o cron e o clique podem rodar ao mesmo tempo sem pegar o mesmo item.
+
+## Reserva: GitHub Actions (manual)
 
 O arquivo `.github/workflows/worker.yml` roda o worker a cada 5 minutos em modo rodada única (`WORKER_ONCE=1`): ele esvazia a fila e encerra, então não precisa de servidor ligado o tempo todo. Em repositório público os minutos do Actions são ilimitados. O GitHub pode atrasar rodadas agendadas em alguns minutos, e desliga o agendamento depois de 60 dias sem commits no repositório (basta reativar em Actions).
 

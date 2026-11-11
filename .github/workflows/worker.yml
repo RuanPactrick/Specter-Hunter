@@ -1,9 +1,7 @@
-# Worker gratuito: roda a fila (Nova pesquisa e Ler sites) a cada 5 minutos no GitHub Actions e encerra.
-# Repositório público = minutos ilimitados. As chaves ficam em Settings → Secrets and variables → Actions.
-name: Worker (rodada agendada)
+# Reserva manual: o robô agora roda na Vercel (rota /api/worker, Vercel Cron a cada minuto e logo após cada clique).
+# Este workflow só roda se você clicar em Actions → Worker (rodada manual) → Run workflow.
+name: Worker (rodada manual)
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 concurrency:
   group: worker

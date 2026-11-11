@@ -7,6 +7,8 @@ import { MaterialsTab } from "@/components/materials";
 import { LeadHeader, leadTabs, type LeadTab } from "@/components/lead-header";
 // links antigos continuam funcionando
 const renamed:Record<string,LeadTab>={evidencias:"fontes",presenca:"fontes",materiais:"previa"};
+// as ações desta página processam a fila logo depois do clique (after)
+export const maxDuration=300;
 export const metadata={title:"Empresa"};
 export default async function LeadPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<Search>}) {
   const [{id},query,{role,userId,db,org}]=await Promise.all([params,searchParams,context()]);
