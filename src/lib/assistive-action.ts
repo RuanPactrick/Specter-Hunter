@@ -62,7 +62,7 @@ async function refineWithAi(id:string,mode:"refine"|"refinePrompt"|"objection",i
     const result=await generate(mode,{company:assistiveCompany(lead),observations,angle:minimizeEvidence(angle),...(mode==="objection"
       ?{reply:minimizeEvidence(parsed.data.instruction),current:sent??undefined,sender:minimizeEvidence(org.message_name)}
       :{current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose,...(mode==="refine"?{sender:minimizeEvidence(org.message_name)}:{})})},config);
-    return result.draft.trim()?{text:result.draft.trim(),tips:result.suggestions.map(s=>s.text).slice(0,mode==="objection"?3:2)}:{error:"A IA não devolveu uma nova versão. Tente outro pedido."};
+    return result.draft.trim()?{text:result.draft.trim(),tips:result.suggestions.map(s=>s.text).slice(0,mode==="objection"?4:2)}:{error:"A IA não devolveu uma nova versão. Tente outro pedido."};
   }catch(error){
     return {error:error instanceof Error&&error.message==="provider_429"?"O limite gratuito da IA foi atingido. Tente em alguns minutos.":"A IA não conseguiu ajustar agora. Tente de novo."};
   }

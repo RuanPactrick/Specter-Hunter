@@ -39,12 +39,16 @@ export function ClientReply({answer,name,onText}:{answer:Refine;name:string;onTe
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [tips,setTips]=useState<string[]>([]);
+  const [best,setBest]=useState("");
+  const [used,setUsed]=useState("");
+  const options=tips.flatMap(t=>{const m=t.match(/^(Curta|Consultiva|Direta):\s*([\s\S]+)/);return m?[{label:m[1],text:m[2].trim()}]:[];});
+  function pick(text:string){setUsed(text);onText(text);}
   async function run() {
     setBusy(true);setError("");
     const result=await answer({content:"",instruction:reply,purpose:"Responder o cliente"}).catch(()=>({error:"A IA não respondeu. Tente de novo."}) as {text?:string;tips?:string[];error?:string});
     setBusy(false);
     if(result.error||!result.text){setError(result.error??"Sem resposta.");return;}
-    setTips(result.tips??[]);onText(result.text);
+    setTips(result.tips??[]);setBest(result.text);pick(result.text);
   }
   return <details className="ai-refine client-reply">
     <summary><strong>O cliente respondeu?</strong> <span className="meta">Cole a resposta e o {name} sugere o que responder.</span></summary>
@@ -52,6 +56,9 @@ export function ClientReply({answer,name,onText}:{answer:Refine;name:string;onTe
     {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar a resposta da empresa, a última mensagem enviada e os achados ao {name}.</label>}
     <button type="button" className="btn primary small" disabled={!allowed||busy||reply.trim().length<2} onClick={run}>{busy?"Analisando…":"Analisar e sugerir resposta"}</button>
     {error&&<Notice tone="error">{error}</Notice>}
-    {tips.length>0&&<div className="client-read">{tips.map(t=><p key={t}>{t}</p>)}<p className="meta">A resposta sugerida está no campo Mensagem acima. Revise antes de enviar.</p></div>}
+    {tips.length>0&&<div className="client-read">{tips.filter(t=>!options.some(o=>t.endsWith(o.text))).map(t=><p key={t}>{t}</p>)}
+      {options.map(o=><div key={o.label} className={"reply-option"+(used===o.text?" on":"")}><p><strong>{o.label}</strong>{o.text===best&&<span className="meta"> · recomendada</span>}</p><p>{o.text}</p>
+        <button type="button" className="btn small" disabled={used===o.text} onClick={()=>pick(o.text)}>{used===o.text?"No campo Mensagem":"Usar esta"}</button></div>)}
+      <p className="meta">A resposta escolhida vai para o campo Mensagem acima. Revise antes de enviar.</p></div>}
   </details>;
 }

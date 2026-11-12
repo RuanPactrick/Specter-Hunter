@@ -64,6 +64,7 @@ it("mensagens de abordagem levam o treino de especialista e a objeção da empre
   expect(sent[0].system).toContain("especialista em prospecção");
   expect(sent[0].system).toContain("Leitura: <tipo>");
   expect(sent[0].system).toContain("não insista");
+  expect(sent[0].system).toContain("\"Consultiva: <resposta");
   expect((sent[0].input as {current?:string}).current).toBe("Olá! Sou Ana e vi a nota 4,9.");
   expect(sent[0].input.reply).toBe("já temos site");
   expect(sent[1].system).not.toContain("especialista em prospecção");
