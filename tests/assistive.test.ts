@@ -59,10 +59,12 @@ it("mensagens de abordagem levam o treino de especialista e a objeção da empre
     return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:JSON.stringify({fact_ids:[],suggestions:[],questions:[],draft:"ok"})}]}}]}));
   };
   const config={key:"k",model:"m"},base={company,observations:[{id:"1",observed:"Nota 4,9 no Google."}]};
-  await draftWithGemini("objection",{...base,reply:"já temos site"},config,provider);
+  await draftWithGemini("objection",{...base,reply:"já temos site",current:"Olá! Sou Ana e vi a nota 4,9."},config,provider);
   await draftWithGemini("brief",base,config,provider);
   expect(sent[0].system).toContain("especialista em prospecção");
-  expect(sent[0].system).toContain("objeção do campo reply");
+  expect(sent[0].system).toContain("Leitura: <tipo>");
+  expect(sent[0].system).toContain("não insista");
+  expect((sent[0].input as {current?:string}).current).toBe("Olá! Sou Ana e vi a nota 4,9.");
   expect(sent[0].input.reply).toBe("já temos site");
   expect(sent[1].system).not.toContain("especialista em prospecção");
 });

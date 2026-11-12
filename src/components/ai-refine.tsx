@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import { Sparkles, Undo2 } from "lucide-react";
-import { Notice } from "./ui";
+import { Field, Notice } from "./ui";
 export type Refine=(input:{content:string;instruction:string;purpose:string})=>Promise<{text?:string;tips?:string[];error?:string}>;
 /** Ajuste em conversa com a IA: cada pedido reescreve o texto do campo, e dá para desfazer. */
-export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,noun,objection=false}:{refine:Refine;name:string;content:string;purpose:string;onText:(text:string)=>void;quick:string[];placeholder:string;noun:string;objection?:boolean}) {
+export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,noun}:{refine:Refine;name:string;content:string;purpose:string;onText:(text:string)=>void;quick:string[];placeholder:string;noun:string}) {
   const [allowed,setAllowed]=useState(false);
   const [ask,setAsk]=useState("");
   const [busy,setBusy]=useState(false);
@@ -23,8 +23,7 @@ export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,n
   return <div className="ai-refine">
     <div className="ai-head"><span className="ai-icon" aria-hidden="true"><Sparkles size={16}/></span><strong>Ajustar com {name}</strong><span className="meta">Peça um ajuste, ele reescreve {noun==="mensagem"?"a mensagem":"o "+noun} acima, você revisa.</span></div>
     {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar {noun==="mensagem"?"esta mensagem":"este "+noun} e os achados da empresa ao {name}.</label>}
-    <div className="chips">{quick.map(q=><button key={q} type="button" className="btn small" disabled={!allowed||busy} onClick={()=>run(q)}>{q}</button>)}
-      {objection&&<button type="button" className="btn small" disabled={!allowed||busy} onClick={()=>setAsk("A empresa respondeu: ")}>Responder objeção…</button>}</div>
+    <div className="chips">{quick.map(q=><button key={q} type="button" className="btn small" disabled={!allowed||busy} onClick={()=>run(q)}>{q}</button>)}</div>
     <div className="ai-ask"><input value={ask} disabled={!allowed||busy} onChange={e=>setAsk(e.target.value)} maxLength={400} aria-label={"Pedido de ajuste para o "+name}
       placeholder={placeholder} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void run(ask);}}}/>
       <button type="button" className="btn primary small" disabled={!allowed||busy||!ask.trim()} onClick={()=>run(ask)}>{busy?"Ajustando…":"Ajustar"}</button></div>
@@ -32,4 +31,27 @@ export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,n
     {history.length>0&&<div className="ai-log"><span className="meta">Ajustes: {history.map(h=>h.asked).join(" → ")}</span><button type="button" className="btn small ghost" onClick={undo}><Undo2 size={14} aria-hidden="true"/>Desfazer</button></div>}
     {tips.length>0&&<div className="chips"><span className="meta">Próximo ajuste:</span>{tips.map(t=><button key={t} type="button" className="btn small ghost ai-tip" disabled={busy} onClick={()=>run(t)}>{t}</button>)}</div>}
   </div>;
+}
+/** "O cliente respondeu?": cola a resposta da empresa, a IA lê a intenção e escreve a resposta no campo da mensagem. */
+export function ClientReply({answer,name,onText}:{answer:Refine;name:string;onText:(text:string)=>void}) {
+  const [reply,setReply]=useState("");
+  const [allowed,setAllowed]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  const [tips,setTips]=useState<string[]>([]);
+  async function run() {
+    setBusy(true);setError("");
+    const result=await answer({content:"",instruction:reply,purpose:"Responder o cliente"}).catch(()=>({error:"A IA não respondeu. Tente de novo."}) as {text?:string;tips?:string[];error?:string});
+    setBusy(false);
+    if(result.error||!result.text){setError(result.error??"Sem resposta.");return;}
+    setTips(result.tips??[]);onText(result.text);
+  }
+  return <details className="ai-refine client-reply">
+    <summary><strong>O cliente respondeu?</strong> <span className="meta">Cole a resposta e o {name} sugere o que responder.</span></summary>
+    <Field label="O que a empresa respondeu" hint="Ex.: quanto custa? / já temos site / quem cuida disso é meu sócio"><textarea value={reply} onChange={e=>setReply(e.target.value)} maxLength={650} rows={3}/></Field>
+    {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar a resposta da empresa, a última mensagem enviada e os achados ao {name}.</label>}
+    <button type="button" className="btn primary small" disabled={!allowed||busy||reply.trim().length<2} onClick={run}>{busy?"Analisando…":"Analisar e sugerir resposta"}</button>
+    {error&&<Notice tone="error">{error}</Notice>}
+    {tips.length>0&&<div className="client-read">{tips.map(t=><p key={t}>{t}</p>)}<p className="meta">A resposta sugerida está no campo Mensagem acima. Revise antes de enviar.</p></div>}
+  </details>;
 }

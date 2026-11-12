@@ -13,7 +13,7 @@ import { readFeed } from "@/lib/feed-photos";
 import { feedPhotoUrls } from "@/lib/feed-store";
 import { analyzeFeedPhotos } from "@/lib/feed-actions";
 import { referenceSearches, sitePrompt } from "@/lib/site-prompt";
-import { refineMessage, refinePrompt } from "@/lib/assistive-action";
+import { answerClient, refineMessage, refinePrompt } from "@/lib/assistive-action";
 import { PromptEditor } from "./prompt-editor";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
 
@@ -74,7 +74,7 @@ export async function ApproachTab({lead}:{lead:Lead}) {
   {lead.stage==="blocked"?<Notice tone="warning">Lead na lista de não contato. As ações e sugestões ficam bloqueadas até revisão pelo proprietário.</Notice>:<section className="panel pad">
   <MessageEditor sender={org.message_name} city={lead.city} preview={previewUrl} contact={whats?.confirmed?whats:undefined} draft={activeDraft} action={outreach.bind(null,lead.id)}
     facts={salesAngle(facts).hooks.map(h=>h.title.toLowerCase())}
-    refine={ai?refineMessage.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}
+    refine={ai?refineMessage.bind(null,lead.id):undefined} answer={ai?answerClient.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}
     unlock={whats&&!whats.confirmed?<div className="unlock"><span><strong>WhatsApp {whats.value}</strong> veio do robô e ainda não foi confirmado.</span><button className="btn small" type="submit" formAction={confirmContact.bind(null,lead.id,whats.id,true,"abordagem")} formNoValidate>Confirmar e liberar</button></div>
       :!whats?<Notice>Nenhum WhatsApp encontrado. Copie a mensagem e use telefone ou e-mail da aba Contatos.</Notice>:null}/></section>}
   <Panel title="Conversa com a empresa">{events.data?.length?events.data.map(e=><div className="row" key={e.id}><div className="min-w-0 wrap-break-word"><strong>{{draft:"Rascunho",sent:"Envio confirmado",reply:"Resposta recebida",call:"Ligação realizada"}[String(e.kind)]??"Registro"}</strong><p>{e.content}</p><p className="meta">{e.channel} · {formatDate(e.created_at)}</p></div></div>):<Empty title="Sem interações" description="Os registros aparecem aqui após salvar um rascunho ou confirmar uma interação."/>}</Panel></div>

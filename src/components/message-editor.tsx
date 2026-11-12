@@ -1,13 +1,13 @@
 "use client";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy, ExternalLink } from "lucide-react";
-import { AiRefine, type Refine } from "./ai-refine";
+import { AiRefine, ClientReply, type Refine } from "./ai-refine";
 import { Field, Notice, Select } from "./ui";
 import { Submit } from "./submit";
 import { messageTemplate, purposes, whatsappLink, withGreeting, type Contact, type Purpose } from "@/lib/domain";
 const noop=()=>()=>{};
 /** Abordagem em 3 passos: objetivo, mensagem (com fatos para inserir) e envio + registro. */
-export function MessageEditor({ sender,city,preview,contact,draft,action,facts=[],unlock,refine,aiName="Gemini" }:{sender:string;city:string;preview:string|null;contact?:Contact;draft?:{purpose:Purpose;content:string};action:(form:FormData)=>Promise<void>;facts?:string[];unlock?:ReactNode;refine?:Refine;aiName?:string}) {
+export function MessageEditor({ sender,city,preview,contact,draft,action,facts=[],unlock,refine,answer,aiName="Gemini" }:{sender:string;city:string;preview:string|null;contact?:Contact;draft?:{purpose:Purpose;content:string};action:(form:FormData)=>Promise<void>;facts?:string[];unlock?:ReactNode;refine?:Refine;answer?:Refine;aiName?:string}) {
   const [purpose,setPurpose]=useState<Purpose>(draft?.purpose??"confirm");
   const [raw,setContent]=useState(draft?.content??messageTemplate("confirm",sender,city,preview));
   const [byTime,setByTime]=useState(true);
@@ -29,11 +29,12 @@ export function MessageEditor({ sender,city,preview,contact,draft,action,facts=[
       <div className="chips" role="radiogroup" aria-label="Objetivo da mensagem">{options.map(([key,label])=><button key={key} type="button" role="radio" aria-checked={purpose===key} className={"chip"+(purpose===key?" on":"")}
         onClick={()=>{setPurpose(key);setContent(messageTemplate(key,sender,city,preview));}}>{label}</button>)}</div></section>
     <section className="composer-step"><h3><span className="step-n">2</span>Ajuste a mensagem</h3>
+      {answer&&<ClientReply answer={answer} name={aiName} onText={setContent}/>}
       <Field label="Mensagem" hint="Revise o texto e só afirme o que estiver confirmado."><textarea name="content" required maxLength={3000} rows={8} value={content} onChange={event=>setContent(event.target.value)}/></Field>
       <label className="check"><input type="checkbox" checked={byTime} onChange={e=>setByTime(e.target.checked)}/>Saudação pelo horário (bom dia, boa tarde ou boa noite)</label>
       {facts.length>0&&<div className="chips"><span className="meta">Inserir fato:</span>{facts.map(f=><button key={f} type="button" className="btn small" onClick={()=>setContent(c=>c.trimEnd()+" "+f)}>+ {f}</button>)}<span className="meta grow-right">{content.length} caracteres</span></div>}
-      {refine&&<AiRefine refine={refine} name={aiName} content={content} purpose={purposes[purpose]} onText={setContent} objection
-        quick={["Usar o melhor achado","Melhorar a mensagem","Mais curta","Mais próxima e informal","Mais formal","Começar com um elogio"]} placeholder="Ex.: cite as 173 avaliações; a empresa respondeu: já temos site" noun="mensagem"/>}
+      {refine&&<AiRefine refine={refine} name={aiName} content={content} purpose={purposes[purpose]} onText={setContent}
+        quick={["Usar o melhor achado","Melhorar a mensagem","Mais curta","Mais próxima e informal","Mais formal","Começar com um elogio"]} placeholder="Ex.: cite as 173 avaliações; deixe mais curta" noun="mensagem"/>}
     </section>
     <section className="composer-step"><h3><span className="step-n">3</span>Envie e registre</h3>
       {unlock}

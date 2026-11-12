@@ -355,6 +355,10 @@ progress{width:100%;height:9px;accent-color:var(--color-primary)}.steps{list-sty
 /* sugestões do Gemini são frases longas: quebram linha em vez de alargar o editor */
 .ai-tip{white-space:normal;text-align:left;justify-content:flex-start;height:auto;padding-block:8px;max-width:100%}
 .composer,.composer-step,.ai-refine{min-width:0}
+.client-reply>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.client-reply:not([open]){gap:0}
+.client-read{display:grid;gap:6px;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid #CFE5D5;overflow-wrap:anywhere}
+.client-read p{margin:0}
 .ai-log{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ai-log .meta{flex:1 1 200px}
 .logo-row{display:flex;align-items:center;gap:12px}.logo-row img{width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid var(--color-border);background:#fff}
 /* fotos do feed escolhidas pelo Gemini (Prévia, passo 1) */
