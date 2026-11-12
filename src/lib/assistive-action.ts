@@ -25,7 +25,7 @@ export async function generateAssistance(id:string,provider:"gemini"|"openai",_s
   if(reservation.error)return {error:reservation.error.code==="P2005"?"A cota de consultas da organização foi atingida. Tente mais tarde.":"Não foi possível reservar a consulta. Verifique a configuração da integração."};
   try{
     const generate=config.provider==="gemini"?draftWithGemini:draftWithOpenAI;
-    const result=await generate(mode.data,{company:assistiveCompany(lead),observations,...(mode.data==="objection"?{reply}:{})},config);
+    const result=await generate(mode.data,{company:assistiveCompany(lead),observations,sender:minimizeEvidence(org.message_name),...(mode.data==="objection"?{reply}:{})},config);
     return {facts:[...new Set(result.fact_ids)].flatMap(f=>{const item=observations.find(item=>item.id===f);return item?[{id:f,text:item.observed,source:sources.get(f)!}]:[];}),
       suggestions:result.suggestions.map(item=>({text:item.text,refs:[...new Set(item.evidence_ids)].map(ref=>sources.get(ref)!)})),questions:result.questions,draft:result.draft};
   }catch(error){
@@ -55,7 +55,7 @@ async function refineWithAi(id:string,mode:"refine"|"refinePrompt",input:{conten
   if(reservation.error)return {error:reservation.error.code==="P2005"?"A cota de consultas da IA foi atingida. Tente mais tarde.":"Não foi possível reservar a consulta da IA."};
   try{
     const generate=config.provider==="gemini"?draftWithGemini:draftWithOpenAI;
-    const result=await generate(mode,{company:assistiveCompany(lead),observations,current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose,angle:minimizeEvidence(angle)},config);
+    const result=await generate(mode,{company:assistiveCompany(lead),observations,current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose,angle:minimizeEvidence(angle),...(mode==="refine"?{sender:minimizeEvidence(org.message_name)}:{})},config);
     return result.draft.trim()?{text:result.draft.trim(),tips:result.suggestions.map(s=>s.text).slice(0,2)}:{error:"A IA não devolveu uma nova versão. Tente outro pedido."};
   }catch(error){
     return {error:error instanceof Error&&error.message==="provider_429"?"O limite gratuito da IA foi atingido. Tente em alguns minutos.":"A IA não conseguiu ajustar agora. Tente de novo."};
