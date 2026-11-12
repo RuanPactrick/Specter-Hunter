@@ -27,11 +27,16 @@ const text = z.string().max(5000).nullish();
 const profileSchema = z.array(z.object({
   username: text, fullName: text, followersCount: z.number().nullish(), followsCount: z.number().nullish(), postsCount: z.number().nullish(),
   verified: z.boolean().nullish(), isBusinessAccount: z.boolean().nullish(), businessCategoryName: text, biography: text, externalUrl: text, error: text, profilePicUrl: text, profilePicUrlHD: text,
-  latestPosts: z.array(z.object({ timestamp: text, likesCount: z.number().nullish(), commentsCount: z.number().nullish() })).max(50).nullish(),
+  latestPosts: z.array(z.object({ timestamp: text, likesCount: z.number().nullish(), commentsCount: z.number().nullish(), displayUrl: text, url: text })).max(50).nullish(),
 })).max(5);
 export type RawProfile = z.output<typeof profileSchema>[number];
 export const apifyProfile = async (user: string, token: string, fetcher = fetch) =>
   (await apifyRun("apify~instagram-profile-scraper", { usernames: [user] }, profileSchema, token, fetcher)).find(p => p.username?.toLowerCase() === user) ?? null;
+
+/** Imagens dos posts mais recentes (a capa, no caso de vídeo e carrossel), com o link do post. */
+export const feedImages = (p: RawProfile | null, max = 12) => (p?.latestPosts ?? [])
+  .filter(x => x.displayUrl?.startsWith("https://")).sort((a, b) => String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? "")))
+  .slice(0, max).map(x => ({ image: x.displayUrl!, post: x.url ?? null }));
 
 export type Profile = { user: string; name: string | null; followers: number; posts: number | null; bio: string | null; link: string | null;
   lastPost: string | null; idleDays: number | null; posts30: number; likes: number | null; comments: number | null; pic?: string | null };

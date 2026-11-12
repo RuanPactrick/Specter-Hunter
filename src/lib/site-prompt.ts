@@ -20,6 +20,7 @@ export type SiteFacts = {
   colors: string[]; fonts: string[]; logo: boolean;
   rating?: [string, string]; address?: string; whatsapp?: string; instagram: boolean;
   facts: { kind: string; observed: string }[];
+  photos?: { use: string; description: string }[]; feedStyle?: string;
 };
 
 /** Prompt do site com só o que ajuda a construir: o que não foi encontrado fica de fora em vez de virar "não encontrado". */
@@ -35,13 +36,15 @@ export function sitePrompt(s: SiteFacts) {
   const extras = [
     s.rating && "abrir com a nota " + s.rating[0] + " (" + s.rating[1] + " avaliações no Google)",
     s.whatsapp && "botão de WhatsApp (" + s.whatsapp + ") fixo no celular e no topo e rodapé",
-    s.instagram && "fotos reais do Instagram da empresa no lugar de banco de imagens",
+    s.instagram && !s.photos?.length && "fotos reais do Instagram da empresa no lugar de banco de imagens",
     s.address && "endereço " + s.address + " com link de rotas"
   ].filter(Boolean);
   return [
     "Crie um site one-page para " + s.name + ", " + s.sector.toLowerCase() + " em " + s.place + ". Objetivo: transformar visitas em " + (s.whatsapp ? "conversas no WhatsApp" : "contatos") + ".",
     siteStack,
     identity.length ? "Identidade: " + identity.join("; ") + "." : "",
+    s.feedStyle ? "Estilo visual que a empresa já usa no Instagram: " + s.feedStyle + "." : "",
+    s.photos?.length ? "Fotos reais anexadas, na ordem: " + s.photos.map((p, i) => (i + 1) + ") " + p.use + ": " + p.description).join("; ") + ". Use essas fotos no lugar de banco de imagens, a 1 no topo." : "",
     "Seções: " + sections.join(", ") + ".",
     facts.length ? "Dados reais para usar no texto: " + facts.join(" | ") : "",
     extras.length ? "Diferenciais: " + extras.join("; ") + "." : "",

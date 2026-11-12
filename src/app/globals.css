@@ -357,3 +357,10 @@ progress{width:100%;height:9px;accent-color:var(--color-primary)}.steps{list-sty
 .composer,.composer-step,.ai-refine{min-width:0}
 .ai-log{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ai-log .meta{flex:1 1 200px}
 .logo-row{display:flex;align-items:center;gap:12px}.logo-row img{width:64px;height:64px;object-fit:contain;border-radius:8px;border:1px solid var(--color-border);background:#fff}
+/* fotos do feed escolhidas pelo Gemini (Prévia, passo 1) */
+.feed-photos{display:grid;gap:10px}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.photo-grid figure{margin:0;display:grid;gap:6px;min-width:0}
+.photo-grid img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:8px;border:1px solid var(--color-border);background:#fff;display:block}
+.photo-grid figcaption{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.photo-grid figcaption span:last-child{flex-basis:100%;color:var(--color-text-secondary)}

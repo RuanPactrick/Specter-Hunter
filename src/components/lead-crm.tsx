@@ -9,6 +9,9 @@ import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
 import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { salesAngle } from "@/lib/insights";
 import { aiConfig } from "@/lib/assistive";
+import { readFeed } from "@/lib/feed-photos";
+import { feedPhotoUrls } from "@/lib/feed-store";
+import { analyzeFeedPhotos } from "@/lib/feed-actions";
 import { referenceSearches, sitePrompt } from "@/lib/site-prompt";
 import { refineMessage, refinePrompt } from "@/lib/assistive-action";
 import { PromptEditor } from "./prompt-editor";
@@ -93,20 +96,25 @@ export async function ApproachTab({lead}:{lead:Lead}) {
 
 const avoid=["Degradê roxo e azul genérico no topo","Foto de banco de imagem com sorriso perfeito","Três cartões iguais com ícone e frase vaga","Depoimentos inventados e “Agende já” repetido"];
 export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.ReactNode}) {
-  const [preview,evidence,channels]=await Promise.all([loadPreview(lead.id),loadEvidence(lead.id),loadContacts(lead.id)]);
+  const [preview,evidence,channels,{org}]=await Promise.all([loadPreview(lead.id),loadEvidence(lead.id),loadContacts(lead.id),context()]);
   const live=evidence.filter(e=>!evidenceExpired(e)&&e.review!=="inconclusive"&&e.review!=="conflict");
   const find=(k:string)=>live.find(e=>e.kind===k);
   const ident=find("Identidade visual"),maps=find("Google Maps"),ig=find("Perfil do Instagram"),logo=find("Logo");
   const blockedSite=/não permite leitura/.test(find("Leitura do site")?.observed??"");
   const noBrand=blockedSite?"O site bloqueia leitura automática. Peça à empresa ou pegue do Instagram.":null;
-  const colors=ident?.observed.match(/#[0-9A-F]{6}/gi)??[];
+  const feed=readFeed(find("Fotos do Instagram")?.observed);
+  const photos=feed?.photos.length?await feedPhotoUrls(org.id,lead.id):[];
+  const siteColors=ident?.observed.match(/#[0-9A-F]{6}/gi)??[];
+  // sem cores no site, a paleta que se repete no feed do Instagram serve de identidade
+  const colors=siteColors.length?siteColors:feed?.palette??[];
   const fonts=ident?.observed.match(/Fontes: ([^.]+)\./)?.[1].split(/,\s*/)??[];
   const rating=maps?.observed.match(/nota ([\d,]+) com (\d+) avalia/);
   const whats=channels.find(c=>c.kind==="whatsapp");
   const roles=["principal","apoio","destaque","fundo"];
   const differentials=[rating&&"Abrir com a nota "+rating[1]+" ("+rating[2]+" avaliações) e trechos reais das avaliações",(lead.address||maps)&&"Mostrar o endereço com mapa e “como chegar”",whats&&"Botão de WhatsApp direto no topo e no rodapé",ig&&"Usar fotos reais do Instagram, sem banco de imagens"].filter(Boolean) as string[];
   const prompt=sitePrompt({name:lead.name,sector:lead.sector,place:[lead.district,lead.city+" – "+lead.region].filter(Boolean).join(", "),colors,fonts,logo:Boolean(logo?.url),
-    rating:rating?[rating[1],rating[2]]:undefined,address:lead.address||undefined,whatsapp:whats?.value,instagram:Boolean(ig),facts:live});
+    rating:rating?[rating[1],rating[2]]:undefined,address:lead.address||undefined,whatsapp:whats?.value,instagram:Boolean(ig),facts:live,
+    photos:feed?.photos.filter(p=>photos.some(u=>u.n===p.n)),feedStyle:feed?.style||undefined});
   const sent=preview&&["sent","review","approved"].includes(preview.status);
   const ai=aiConfig();
   return <div className="preview-flow">
@@ -117,11 +125,20 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
       <article className="blk"><div className="blk-h"><strong>Logo</strong><span className="meta">{logo?(/instagram/i.test(logo.observed)?"Instagram":"site"):"site e Instagram"}</span></div>{logo?.url?<div className="logo-row">
         {/* eslint-disable-next-line @next/next/no-img-element -- imagem externa (site ou Instagram), sem otimização do Next */}
         <img src={logo.url} alt={"Logo de "+lead.name} referrerPolicy="no-referrer"/><a href={logo.url} target="_blank" rel="noopener noreferrer" className="meta-link">Abrir imagem ↗</a></div>:<p className="muted">Não encontrado. Peça o logo à empresa.</p>}</article>
-      <article className="blk"><div className="blk-h"><strong>Cores</strong><span className="meta">site</span></div>{colors.length?<div className="swatches">{colors.map((c,i)=><div key={c} className="sw"><i style={{background:c}}/><b>{c}</b><span>{roles[i]??"apoio"}</span></div>)}</div>:<p className="muted">{noBrand??"Não encontradas no site. Peça as cores à empresa ou use as do logo."}</p>}</article>
+      <article className="blk"><div className="blk-h"><strong>Cores</strong><span className="meta">{siteColors.length||!colors.length?"site":"feed do Instagram"}</span></div>{colors.length?<div className="swatches">{colors.map((c,i)=><div key={c} className="sw"><i style={{background:c}}/><b>{c}</b><span>{roles[i]??"apoio"}</span></div>)}</div>:<p className="muted">{noBrand??"Não encontradas no site. Peça as cores à empresa ou use as do logo."}</p>}</article>
       <article className="blk"><div className="blk-h"><strong>Fontes</strong><span className="meta">site</span></div>{fonts.length?fonts.map((f,i)=><div key={f} className="font-row"><span style={{fontFamily:f}}>{f}</span><span className="meta">{i?"textos":"títulos"}</span></div>):<p className="muted">{noBrand??"Não encontradas no site."}</p>}</article>
       <article className="blk"><div className="blk-h"><strong>Endereço e referências</strong><span className="meta">Google Maps</span></div><p>{lead.address||"Endereço não informado"}</p></article>
       <article className="blk"><div className="blk-h"><strong>Tom e diferenciais</strong><span className="meta">avaliações</span></div><p>{rating?"Nota "+rating[1]+" com "+rating[2]+" avaliações no Google.":"Sem avaliações coletadas."}</p><p className="meta">{rating&&Number(rating[1].replace(",","."))>=4.5?"Tom sugerido: confiável e acolhedor.":"Defina o tom com a empresa."}</p></article>
-    </div></section>
+    </div>
+    <div className="blk feed-photos"><div className="blk-h"><strong>Fotos do feed</strong><span className="meta">{feed?"Instagram · escolhidas pelo Gemini":"Instagram"}</span></div>
+      {photos.length?<div className="photo-grid">{photos.map(u=>{const p=feed?.photos.find(x=>x.n===u.n);return <figure key={u.n}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- link temporário do armazenamento */}
+        <a href={u.url} target="_blank" rel="noopener noreferrer"><img src={u.url} alt={p?.description??"Foto do Instagram"} loading="lazy"/></a>
+        <figcaption><b>{u.n}. {p?.use}</b>{p?.person&&<Tag tone="info">pessoa principal</Tag>}<span className="meta">autoridade {p?.authority}/10</span><span>{p?.description}</span></figcaption></figure>;})}</div>
+      :<p className="muted">{feed?"Nenhuma foto do feed serve para o site.":"O Gemini olha os últimos posts, acha a pessoa principal e escolhe as fotos que passam mais autoridade, além da paleta e do estilo do feed."}</p>}
+      {feed?.style&&<p><b>Estilo do feed:</b> {feed.style}</p>}{feed?.advice&&<p className="meta"><b>Para passar mais autoridade:</b> {feed.advice}</p>}
+      {photos.length>0&&<p className="meta">Antes de publicar o site de verdade, peça autorização à empresa para usar as fotos.</p>}
+      {ai?.provider==="gemini"&&lead.stage!=="blocked"&&<form action={analyzeFeedPhotos.bind(null,lead.id)}><Submit style="small">{feed?"Analisar de novo":"Analisar fotos do Instagram"}</Submit></form>}</div></section>
   <section className="panel pad stack"><div className="list-head"><span className="step-n">2</span><div className="grow"><h2>Referências do nicho</h2><p className="meta">O padrão dos sites do segmento, para fazer algo diferente dele.</p></div></div>
     <div className="refs-grid"><div className="blk bad"><strong>Evitar: cara de site feito por IA</strong><ul>{avoid.map(a=><li key={a}>{a}</li>)}</ul></div>
       <div className="blk good"><strong>Diferencial desta prévia</strong>{differentials.length?<ul>{differentials.map(d=><li key={d}>{d}</li>)}</ul>:<p className="muted">Peça a leitura automática para trazer avaliações, endereço e Instagram.</p>}</div></div>
