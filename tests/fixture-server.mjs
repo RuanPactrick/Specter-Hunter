@@ -92,6 +92,7 @@ createServer((request,response)=>{
     if(table==="enrichment_requests"&&select.startsWith("state,step"))rows=[{state:"done",step:null,error_code:null,finished_at:ago(30),suggestion:{points:80,maximum:85,opportunity:"baixa",rationale:"",signals:{site_vivo:true,instagram:true,email:true,telefone:true,whatsapp:true,cnpj:true,linkedin:false}}}];
     if(table==="audit_events")rows=[{id:"a1",event:"lead.enriched",detail:{source:"site_reader"},created_at:ago(30)},{id:"a2",event:"evidence_items.insert",detail:{},created_at:ago(30)},{id:"a3",event:"lead_contacts.insert",detail:{},created_at:ago(30)},{id:"a4",event:"lead.created",detail:{source:"maps"},created_at:ago(200)}];
   }
+  const limit=Number(url.searchParams.get("limit"));if(Number.isSafeInteger(limit)&&limit>0)rows=rows.slice(0,limit);
   if(request.method==="HEAD")return write(response,200,null,{"Content-Range":rows.length?"0-0/1":"*/0"});
   if(select.includes("organizations")&&table!=="organization_members")return write(response,400,{message:"Unexpected fixture relation"});
   return write(response,200,rows,{"Content-Range":rows.length?"0-"+(rows.length-1)+"/"+rows.length:"*/0"});
