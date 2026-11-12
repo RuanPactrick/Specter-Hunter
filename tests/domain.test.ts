@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { contactValue,domain,evidenceExpired,evidenceUsable,messageTemplate,nameKey,phone,publicUrl,score,sites,whatsappLink,type Contact } from "../src/lib/domain";
+import { contactValue,domain,evidenceExpired,evidenceUsable,messageTemplate,nameKey,phone,publicUrl,score,sites,whatsappLink,withGreeting,type Contact } from "../src/lib/domain";
 import { csvCell,readCsv,suggestMap,toCsv } from "../src/lib/csv";
 import { fileType } from "../src/lib/files";
 describe("Dados comerciais",()=>{
@@ -60,5 +60,18 @@ describe("Arquivos",()=>{
     expect(fileType("logo.svg","image/svg+xml",png,"logo")).toBeNull();
     expect(fileType("logo.jpg","image/jpeg",png,"logo")).toBeNull();
     expect(fileType("logo.png","image/png",png,"document")).toBeNull();
+  });
+});
+describe("saudação pelo horário",()=>{
+  it("troca a saudação do início e mantém o resto",()=>{
+    expect(withGreeting("Olá! Sou Ruan.",9)).toBe("Bom dia! Sou Ruan.");
+    expect(withGreeting("Oi, tudo bem?",14)).toBe("Boa tarde, tudo bem?");
+    expect(withGreeting("Bom dia! Sou Ruan.",20)).toBe("Boa noite! Sou Ruan.");
+    expect(withGreeting("Boa noite! Sou Ruan.",3)).toBe("Boa noite! Sou Ruan.");
+  });
+  it("coloca saudação quando não há e não mexe em texto vazio ou em palavras parecidas",()=>{
+    expect(withGreeting("Sou Ruan.",11)).toBe("Bom dia! Sou Ruan.");
+    expect(withGreeting("Oito anos de clínica.",12)).toBe("Boa tarde! Oito anos de clínica.");
+    expect(withGreeting("",9)).toBe("");
   });
 });

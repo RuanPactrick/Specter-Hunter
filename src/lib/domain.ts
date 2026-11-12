@@ -96,6 +96,13 @@ export function score(items: Assessment[], validEvidence: Set<string>) {
   const maximum = eligible.reduce((sum,item) => sum + criteria[item.criterion].max, 0);
   return { observed, maximum, coverage: maximum, provisional: maximum < 100 };
 }
+/** Troca a saudação do início (Olá, Oi, Bom dia...) pela do horário; sem saudação, coloca uma. */
+export function withGreeting(text: string, hour: number) {
+  if (!text.trim()) return text;
+  const greeting = hour >= 5 && hour < 12 ? "Bom dia" : hour >= 12 && hour < 18 ? "Boa tarde" : "Boa noite";
+  const start = /^(\s*)(olá|ola|oi|bom dia|boa tarde|boa noite)(?=[\s!,.?]|$)/i;
+  return start.test(text) ? text.replace(start, "$1" + greeting) : greeting + "! " + text;
+}
 export function messageTemplate(purpose: Purpose, sender: string, city: string, preview: string | null) {
   if (purpose === "preview" && !preview) return "";
   const text: Record<Purpose,string> = {
