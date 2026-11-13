@@ -1,19 +1,36 @@
 import { decodeEntities } from "./domain";
 
 /** Como o site deve ser construído: dito explicitamente para o criador de sites não escolher sozinho. */
-export const siteStack = "Tecnologia: um único arquivo index.html com HTML5 semântico, CSS moderno (variáveis, Grid, Flexbox e clamp() para tipografia fluida) e JavaScript puro só para o menu no celular, rolagem suave e animações discretas com IntersectionObserver. Sem frameworks, sem etapa de build e sem bibliotecas externas além do Google Fonts. Mobile-first e responsivo de 360px a 1440px, imagens com loading=\"lazy\" e texto alternativo, contraste WCAG AA, foco visível, meta tags de título e descrição e <meta name=\"robots\" content=\"noindex\">.";
+export const siteStack = "Tecnologia: um único arquivo index.html com HTML5 semântico, CSS moderno (variáveis, Grid, Flexbox e clamp() para tipografia fluida) e JavaScript puro só para o menu no celular, rolagem suave e poucas animações com IntersectionObserver. Sem frameworks, sem etapa de build e sem bibliotecas externas além do Google Fonts. Mobile-first e responsivo de 360px a 1440px, imagens com loading=\"lazy\" e texto alternativo, contraste WCAG AA, foco visível, meta tags de título e descrição e <meta name=\"robots\" content=\"noindex\">.";
 const noAiTitle = "## Proibido: cara de site feito por IA";
 /** Regras fixas contra o visual genérico de IA. Sempre voltam ao prompt (ver noAiLook), mesmo se apagadas ou reescritas. */
 export const noAiRules = [noAiTitle,
-  "O site não pode parecer gerado por IA nem por template. Se parecer, está errado. Não use:",
-  "- degradês roxo, azul ou rosa, manchas de cor desfocadas no fundo, vidro fosco (glassmorphism), brilho neon ou sombras coloridas;",
-  "- texto com degradê, selinho “✨ Novo” ou pílula acima do título, emojis no lugar de ícones;",
-  "- ícone genérico dentro de círculo colorido em cima de cada cartão, e grades de 3 ou 4 cartões iguais com ícone, título e frase vaga;",
-  "- todas as seções centralizadas com o mesmo espaçamento, cantos muito arredondados em tudo e sombras suaves em todo elemento;",
-  "- ilustrações 3D, bonecos, fotos de banco de imagem e pessoas sorrindo genéricas;",
-  "- frases de IA: “Transforme”, “Eleve”, “Descubra”, “Bem-vindo ao”, “soluções inovadoras”, “excelência”, “de ponta”, “sua jornada”, “experiência única”, “+1000 clientes satisfeitos”, travessões em toda frase.",
-  "Faça como um estúdio de design local faria: uma cor dominante usada com coragem e neutros; contraste forte de tamanho entre títulos e textos; grid com assimetria, alinhamento à esquerda e larguras variadas; cantos e sombras discretos e coerentes; fotos reais com recorte pensado; textos com nomes, lugares e serviços da própria empresa.",
-  "Teste final antes de entregar: se trocar o nome da empresa e o site servir para qualquer concorrente, refaça até ele ser inconfundível."
+  "O site não pode parecer gerado por IA nem por template: se parecer, está errado. A direção de arte acima vence o gosto padrão.",
+  "Composição:",
+  "- Monte cada bloco pelo conteúdo, não pelo molde \"topo, 3 cartões, depoimentos, chamada\"; cada seção existe por um motivo.",
+  "- Nada de grade de cartões iguais com ícone, título e frase, de cartão dentro de cartão, nem de \"número grande com legenda pequena\" como enfeite.",
+  "- Nada de rótulo pequeno em maiúsculas acima dos títulos (kicker/eyebrow), selinho \"✨ Novo\", pílula decorativa ou numeração 01/02/03.",
+  "- Espaço curto dentro dos grupos e generoso entre eles; mais espaço acima do título que abaixo. Alinhe à esquerda e varie larguras, sem centralizar tudo.",
+  "- Uma só ênfase por tela: se título, selo, fundo e botão gritam juntos, reduza.",
+  "Superfície:",
+  "- Sem degradê roxo, azul ou rosa, sem manchas desfocadas no fundo, sem vidro fosco, neon ou brilho colorido sem deslocamento, sem texto com degradê.",
+  "- Sem borda colorida grossa na lateral de cartões ou avisos; elevação por borda OU por sombra, nunca as duas.",
+  "- Cantos de 12 a 16px nos cartões (pílula só em botões pequenos); bordas separam, fundos agrupam e sombras sobrepõem, não use os três em todo bloco.",
+  "- Em fundo colorido, o texto secundário usa um tom da própria cor, nunca cinza. Contraste mínimo 4,5:1 no texto e 3:1 no texto grande.",
+  "- Fundo claro ou escuro escolhido pelo uso (quem acessa, onde e com que luz), não pelo segmento.",
+  "Tipografia e imagem:",
+  "- Títulos com no máximo 6rem, espaçamento de letras nunca menor que -0.04em, texto corrido com 65 a 75 caracteres por linha e escala de tamanho e peso bem marcada.",
+  "- Nada de fonte monoespaçada como fantasia \"tecnológica\" nem de Arial, Impact ou fonte do sistema como voz da marca.",
+  "- Ícones desenhados num único traço e peso; nunca emoji ou símbolo Unicode como ícone.",
+  "- Sem ilustração 3D, boneco, rabisco, textura de ruído, foto de banco de imagem ou recorte geométrico imitando a silhueta da foto. Prefira as fotos reais; o que faltar vira marcador, não arte final.",
+  "Movimento e acabamento:",
+  "- Um único momento de movimento marcante (o elemento assinatura), com ease-out e respeitando prefers-reduced-motion; nada de todas as seções entrando do mesmo jeito.",
+  "- Estados de hover, foco visível, carregando e erro desenhados; seleção de texto, cursor, foco e sublinhados na cor da marca, não no padrão do navegador.",
+  "- Revise o meio e o fim da página, não só o topo.",
+  "Texto:",
+  "- Use a linguagem da própria empresa; botões dizem a ação (\"Agendar avaliação\", não \"Saiba mais\").",
+  "- Sem frases de IA: \"Transforme\", \"Eleve\", \"Descubra\", \"Bem-vindo ao\", \"soluções inovadoras\", \"excelência\", \"de ponta\", \"sua jornada\", \"experiência única\", números inventados como \"+1000 clientes satisfeitos\" e travessão em toda frase.",
+  "Teste final antes de entregar: tire o logo e o nome. Se o site servir para qualquer concorrente, refaça até ele ser inconfundível."
 ].join("\n");
 // achado que só diz o que falta não ajuda a construir o site
 const empty = /^(não|nenhum|sem )|não (encontr|permite|respond|possui|tem )|fora do ar|falhou|bloque/i;
@@ -100,7 +117,7 @@ export function sitePrompt(s: SiteFacts) {
     "",
     "## Detalhes que surpreendem",
     "- " + (wa ? "Botão flutuante do WhatsApp com mensagem pronta (https://wa.me/" + wa + "?text=" + encodeURIComponent("Olá! Vi o site e quero saber mais") + "), " : "Botão de contato flutuante, ") + "cabeçalho que encolhe ao rolar e menu do celular em tela cheia.",
-    "- Entradas suaves das seções com IntersectionObserver, números que contam ao aparecer" + (s.rating ? " (nota e avaliações)" : "") + ", hover e foco bem desenhados, respeitando prefers-reduced-motion.",
+    "- Números que contam ao aparecer" + (s.rating ? " (nota e avaliações)" : "") + " e o elemento assinatura como o momento animado da página; o resto entra sem efeito repetido.",
     "- Ritmo visual: alterne seções claras e de cor da marca, use uma tipografia grande no topo e imagens com recorte e proporção cuidadosos.",
     "- Textos em português do Brasil, específicos para " + s.name + " e " + city + ", frases curtas e nada de lorem ipsum.",
     "",

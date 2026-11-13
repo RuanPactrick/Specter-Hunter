@@ -43,7 +43,7 @@ export async function answerClient(id:string,input:{content:string;instruction:s
 async function refineWithAi(id:string,mode:"refine"|"refinePrompt"|"objection",input:{content:string;instruction:string;purpose:string}):Promise<RefineResult> {
   const config=aiConfig();
   if(!config)return {error:"IA desligada no servidor. Cadastre GEMINI_API_KEY e ENABLE_ASSISTIVE_AI=true."};
-  const parsed=z.object({content:z.string().trim().max(9000),instruction:z.string().trim().min(2).max(1500),purpose:z.string().trim().max(80)}).safeParse(input);
+  const parsed=z.object({content:z.string().trim().max(12000),instruction:z.string().trim().min(2).max(1500),purpose:z.string().trim().max(80)}).safeParse(input);
   if(!parsed.success)return {error:"Escreva o texto e o que você quer ajustar."};
   const [{db,org},lead,records]=await Promise.all([context(),loadLead(id),loadEvidence(id)]);
   if(lead.stage==="blocked")return {error:"Empresa marcada como não contatar."};

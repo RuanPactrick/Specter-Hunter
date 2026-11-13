@@ -20,7 +20,7 @@ const output=z.strictObject({
   fact_ids:z.array(z.string()).max(8),
   suggestions:z.array(z.strictObject({text:z.string().min(1).max(700),evidence_ids:z.array(z.string()).min(1).max(8)})).max(8),
   questions:z.array(z.string().min(1).max(350)).max(8),
-  draft:z.string().max(9000)
+  draft:z.string().max(12000)
 });
 const schema={
   type:"object",additionalProperties:false,required:["fact_ids","suggestions","questions","draft"],
@@ -62,7 +62,7 @@ export async function draftWithOpenAI(mode:AssistiveMode,input:DraftInput,config
     method:"POST",cache:"no-store",redirect:"error",signal:AbortSignal.timeout(18000),
     headers:{Authorization:"Bearer "+config.key,"Content-Type":"application/json"},
     body:JSON.stringify({model:config.model,store:false,tools:[],instructions:instructions+(salesModes.has(mode)?outreach:"")+" "+tasks[mode],
-      input:JSON.stringify(input),max_output_tokens:4096,
+      input:JSON.stringify(input),max_output_tokens:6000,
       text:{format:{type:"json_schema",name:"specter_assistive_draft",strict:true,schema}}})
   });
   if(!response.ok)throw new Error("provider_"+response.status);
