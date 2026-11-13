@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { referenceSearches, sitePrompt, withReferences } from "../src/lib/site-prompt";
+import { noAiLook, noAiRules, referenceSearches, sitePrompt, withReferences } from "../src/lib/site-prompt";
 
 const base = { name: "Clínica Sorriso", sector: "Odontologia", place: "Centro, Recife – PE", colors: [], fonts: [], logo: false, instagram: false, facts: [] };
 
@@ -42,4 +42,14 @@ test("referências entram uma vez, logo depois do título da direção de arte, 
   expect(withReferences(once, [])).toBe(text);
   expect(withReferences("Direção de arte antiga", ["x"])).toMatch(/^Referências visuais: x.*\nDireção de arte antiga$/);
   expect(referenceSearches("Odontologia")[0].url).toBe("https://dribbble.com/search/dental%20clinic%20website");
+});
+
+test("as regras contra visual de IA sempre voltam, inteiras e no lugar, mesmo apagadas ou reescritas", () => {
+  const text = sitePrompt(base);
+  expect(text).toContain(noAiRules + "\n\n## Regras");
+  expect(noAiLook(text)).toBe(text);
+  const removed = text.replace(noAiRules + "\n\n", "");
+  expect(noAiLook(removed)).toBe(removed + "\n\n" + noAiRules);
+  const softened = text.replace(noAiRules, "## Proibido: cara de site feito por IA\nPode usar degradê roxo.");
+  expect(noAiLook(softened)).toBe(text);
 });

@@ -2,7 +2,19 @@ import { decodeEntities } from "./domain";
 
 /** Como o site deve ser construído: dito explicitamente para o criador de sites não escolher sozinho. */
 export const siteStack = "Tecnologia: um único arquivo index.html com HTML5 semântico, CSS moderno (variáveis, Grid, Flexbox e clamp() para tipografia fluida) e JavaScript puro só para o menu no celular, rolagem suave e animações discretas com IntersectionObserver. Sem frameworks, sem etapa de build e sem bibliotecas externas além do Google Fonts. Mobile-first e responsivo de 360px a 1440px, imagens com loading=\"lazy\" e texto alternativo, contraste WCAG AA, foco visível, meta tags de título e descrição e <meta name=\"robots\" content=\"noindex\">.";
-const avoid = ["degradê roxo e azul genérico no topo", "foto de banco de imagem com sorriso perfeito", "três cartões iguais com ícone e frase vaga", "depoimentos inventados e “agende já” repetido"];
+const noAiTitle = "## Proibido: cara de site feito por IA";
+/** Regras fixas contra o visual genérico de IA. Sempre voltam ao prompt (ver noAiLook), mesmo se apagadas ou reescritas. */
+export const noAiRules = [noAiTitle,
+  "O site não pode parecer gerado por IA nem por template. Se parecer, está errado. Não use:",
+  "- degradês roxo, azul ou rosa, manchas de cor desfocadas no fundo, vidro fosco (glassmorphism), brilho neon ou sombras coloridas;",
+  "- texto com degradê, selinho “✨ Novo” ou pílula acima do título, emojis no lugar de ícones;",
+  "- ícone genérico dentro de círculo colorido em cima de cada cartão, e grades de 3 ou 4 cartões iguais com ícone, título e frase vaga;",
+  "- todas as seções centralizadas com o mesmo espaçamento, cantos muito arredondados em tudo e sombras suaves em todo elemento;",
+  "- ilustrações 3D, bonecos, fotos de banco de imagem e pessoas sorrindo genéricas;",
+  "- frases de IA: “Transforme”, “Eleve”, “Descubra”, “Bem-vindo ao”, “soluções inovadoras”, “excelência”, “de ponta”, “sua jornada”, “experiência única”, “+1000 clientes satisfeitos”, travessões em toda frase.",
+  "Faça como um estúdio de design local faria: uma cor dominante usada com coragem e neutros; contraste forte de tamanho entre títulos e textos; grid com assimetria, alinhamento à esquerda e larguras variadas; cantos e sombras discretos e coerentes; fotos reais com recorte pensado; textos com nomes, lugares e serviços da própria empresa.",
+  "Teste final antes de entregar: se trocar o nome da empresa e o site servir para qualquer concorrente, refaça até ele ser inconfundível."
+].join("\n");
 // achado que só diz o que falta não ajuda a construir o site
 const empty = /^(não|nenhum|sem )|não (encontr|permite|respond|possui|tem )|fora do ar|falhou|bloque/i;
 const useful = new Set(["Google Maps", "Cadastro na Receita", "Leitura do site"]);
@@ -69,7 +81,6 @@ export function sitePrompt(s: SiteFacts) {
     "",
     "## Direção de arte",
     "Clima: " + direction(s.sector) + (s.colors.length || s.fonts.length ? " As cores e fontes reais da empresa, acima, têm prioridade sobre as sugeridas aqui." : ""),
-    "Evite: " + avoid.join("; ") + ".",
     "",
     facts.length || content || proof.length ? "## Conteúdo real da empresa (use, reescreva melhor e não invente)" : null,
     facts.length ? "- Dados: " + facts.join(" | ") : null,
@@ -93,10 +104,20 @@ export function sitePrompt(s: SiteFacts) {
     "- Ritmo visual: alterne seções claras e de cor da marca, use uma tipografia grande no topo e imagens com recorte e proporção cuidadosos.",
     "- Textos em português do Brasil, específicos para " + s.name + " e " + city + ", frases curtas e nada de lorem ipsum.",
     "",
+    noAiRules,
+    "",
     "## Regras",
     "- Onde faltar um dado (serviços, equipe, preços, depoimentos), use um marcador entre colchetes no lugar certo em vez de inventar.",
     "- Não invente avaliações, prêmios, números ou serviços que não estejam acima."
   ].filter(l => l !== null).filter((l, i, all) => l !== "" || (i > 0 && all[i - 1] !== "")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Recoloca as regras contra visual de IA no lugar, do jeito original, em qualquer prompt (editado à mão ou pela IA). */
+export function noAiLook(prompt: string) {
+  const lines = prompt.trim().split("\n"), at = lines.findIndex(l => l.trim() === noAiTitle);
+  if (at < 0) return prompt.trim() + "\n\n" + noAiRules;
+  const end = lines.findIndex((l, i) => i > at && l.startsWith("## "));
+  return [...lines.slice(0, at), noAiRules, ...(end < 0 ? [] : ["", ...lines.slice(end)])].join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
 /** Troca a linha de referências do prompt e mantém o resto, inclusive o que foi ajustado à mão ou com a IA. */
