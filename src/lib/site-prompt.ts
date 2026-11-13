@@ -24,8 +24,9 @@ export type SiteFacts = {
 };
 
 /** Prompt do site com só o que ajuda a construir: o que não foi encontrado fica de fora em vez de virar "não encontrado". */
+export const colorRoles = ["principal", "apoio", "destaque", "fundo"];
 export function sitePrompt(s: SiteFacts) {
-  const roles = ["principal", "apoio", "destaque", "fundo"];
+  const roles = colorRoles;
   const identity = [
     s.colors.length && "cores " + s.colors.map((c, i) => c + " (" + (roles[i] ?? "apoio") + ")").join(", "),
     s.fonts.length && "fontes " + s.fonts.slice(0, 2).join(" para títulos e ") + (s.fonts.length === 1 ? " em tudo" : " para textos"),

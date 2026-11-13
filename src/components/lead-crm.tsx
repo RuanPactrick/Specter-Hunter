@@ -9,10 +9,9 @@ import { leadPath, loadContacts, loadEvidence, loadPreview } from "@/lib/data";
 import { checklist, contactHref, contacts, decodeEntities, evidenceExpired, formatDate, offerKinds, previewStates, purposes, today, type Lead, type Purpose } from "@/lib/domain";
 import { salesAngle } from "@/lib/insights";
 import { aiConfig } from "@/lib/assistive";
-import { readFeed } from "@/lib/feed-photos";
-import { feedPhotoUrls } from "@/lib/feed-store";
 import { analyzeFeedPhotos } from "@/lib/feed-actions";
-import { referenceSearches, sitePrompt } from "@/lib/site-prompt";
+import { referenceSearches } from "@/lib/site-prompt";
+import { loadSiteKit } from "@/lib/site-kit";
 import { answerClient, refineMessage, refinePrompt } from "@/lib/assistive-action";
 import { PromptEditor } from "./prompt-editor";
 import { addContact, confirmContact, linkDuplicates, outreach, saveOffer, savePreview } from "@/lib/lead-actions";
@@ -96,25 +95,11 @@ export async function ApproachTab({lead}:{lead:Lead}) {
 
 const avoid=["Degradê roxo e azul genérico no topo","Foto de banco de imagem com sorriso perfeito","Três cartões iguais com ícone e frase vaga","Depoimentos inventados e “Agende já” repetido"];
 export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.ReactNode}) {
-  const [preview,evidence,channels,{org}]=await Promise.all([loadPreview(lead.id),loadEvidence(lead.id),loadContacts(lead.id),context()]);
-  const live=evidence.filter(e=>!evidenceExpired(e)&&e.review!=="inconclusive"&&e.review!=="conflict");
-  const find=(k:string)=>live.find(e=>e.kind===k);
-  const ident=find("Identidade visual"),maps=find("Google Maps"),ig=find("Perfil do Instagram"),logo=find("Logo");
-  const blockedSite=/não permite leitura/.test(find("Leitura do site")?.observed??"");
+  const [preview,kit]=await Promise.all([loadPreview(lead.id),loadSiteKit(lead)]);
+  const {ident,maps,ig,logo,blockedSite,feed,photos,siteColors,colors,fonts,rating,whats,prompt}=kit;
   const noBrand=blockedSite?"O site bloqueia leitura automática. Peça à empresa ou pegue do Instagram.":null;
-  const feed=readFeed(find("Fotos do Instagram")?.observed);
-  const photos=feed?.photos.length?await feedPhotoUrls(org.id,lead.id):[];
-  const siteColors=ident?.observed.match(/#[0-9A-F]{6}/gi)??[];
-  // sem cores no site, a paleta que se repete no feed do Instagram serve de identidade
-  const colors=siteColors.length?siteColors:feed?.palette??[];
-  const fonts=ident?.observed.match(/Fontes: ([^.]+)\./)?.[1].split(/,\s*/)??[];
-  const rating=maps?.observed.match(/nota ([\d,]+) com (\d+) avalia/);
-  const whats=channels.find(c=>c.kind==="whatsapp");
   const roles=["principal","apoio","destaque","fundo"];
   const differentials=[rating&&"Abrir com a nota "+rating[1]+" ("+rating[2]+" avaliações) e trechos reais das avaliações",(lead.address||maps)&&"Mostrar o endereço com mapa e “como chegar”",whats&&"Botão de WhatsApp direto no topo e no rodapé",ig&&"Usar fotos reais do Instagram, sem banco de imagens"].filter(Boolean) as string[];
-  const prompt=sitePrompt({name:lead.name,sector:lead.sector,place:[lead.district,lead.city+" – "+lead.region].filter(Boolean).join(", "),colors,fonts,logo:Boolean(logo?.url),
-    rating:rating?[rating[1],rating[2]]:undefined,address:lead.address||undefined,whatsapp:whats?.value,instagram:Boolean(ig),facts:live,
-    photos:feed?.photos.filter(p=>photos.some(u=>u.n===p.n)),feedStyle:feed?.style||undefined});
   const sent=preview&&["sent","review","approved"].includes(preview.status);
   const ai=aiConfig();
   return <div className="preview-flow">
@@ -145,7 +130,7 @@ export async function PreviewTab({lead,materials}:{lead:Lead;materials:React.Rea
     <div className="actions"><span className="meta">Buscar referências de {lead.sector.toLowerCase()}:</span>{referenceSearches(lead.sector).map(r=><a key={r.name} className="btn small" href={r.url} target="_blank" rel="noopener noreferrer">{r.name} ↗</a>)}</div>
     <p className="meta">Escolha 2 ou 3 que fujam do padrão, cole os links no passo 3 e anexe os prints junto com o prompt no criador de sites.</p></section>
   <section className="panel pad stack"><div className="list-head"><span className="step-n">3</span><div className="grow"><h2>Prompt do site</h2><p className="meta">Gerado automaticamente com tudo o que sabemos da empresa. Refine com o Gemini até ficar do seu jeito.</p></div></div>
-    <PromptEditor initial={prompt} refine={ai&&lead.stage!=="blocked"?refinePrompt.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}/></section>
+    <PromptEditor initial={prompt} download={"/api/pasta/"+lead.id} refine={ai&&lead.stage!=="blocked"?refinePrompt.bind(null,lead.id):undefined} aiName={ai?.provider==="openai"?"OpenAI":"Gemini"}/></section>
   <details className="panel disclosure"><summary>Depois de montar: link da prévia, conferência, arquivos e retorno {preview&&<Tag tone="info">{previewStates[preview.status]}</Tag>}</summary><div className="inner stack">
   {preview&&<div className="row"><div><span className="meta">Criada em {formatDate(preview.created_at)}</span><br/><SafeLink url={preview.url}/></div><SafeLink url={preview.url}>Abrir prévia</SafeLink></div>}
   <form action={savePreview.bind(null,lead.id)} className="stack"><div className="fields">

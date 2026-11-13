@@ -33,3 +33,16 @@ export async function feedPhotoUrls(org: string, lead: string) {
   const signed = await store.createSignedUrls(names.map(n => folder(org, lead) + "/" + n), 3600);
   return (signed.data ?? []).flatMap((s, i) => s.signedUrl ? [{ n: parseInt(names[i]), url: s.signedUrl }] : []);
 }
+
+/** As fotos guardadas em si, para a pasta do site. */
+export async function feedPhotoFiles(org: string, lead: string) {
+  const store = admin();
+  if (!store) return [];
+  const { data } = await store.list(folder(org, lead), { limit: 50 });
+  const names = (data ?? []).map(f => f.name).filter(n => /^\d+\.(jpg|png|webp)$/.test(n));
+  const files = await Promise.all(names.map(async name => {
+    const { data: blob } = await store.download(folder(org, lead) + "/" + name);
+    return blob ? [{ n: parseInt(name), file: name, bytes: new Uint8Array(await blob.arrayBuffer()) }] : [];
+  }));
+  return files.flat().sort((a, b) => a.n - b.n);
+}

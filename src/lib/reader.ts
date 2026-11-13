@@ -69,6 +69,21 @@ export async function inspectOfficial(input:string) {
 }
 /** Mesmas travas de SSRF, tamanho e redirect da verificação manual; devolve o HTML para quem extrai contatos. */
 export async function readPublicPage(input:string,agent:string) {
+  return readPublic(input,agent,"text/html,application/xhtml+xml",readBody);
+}
+const imageTypes:Record<string,string>={"image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/svg+xml":"svg","image/gif":"gif","image/x-icon":"ico","image/vnd.microsoft.icon":"ico"};
+/** Logo para a pasta do site: só imagem, até 3 MB, com as mesmas travas de endereço e redirect. */
+export async function readPublicImage(input:string) {
+  const page=await readPublic(input,"SpecterHunter/0.1 (logo download)","image/*",async response=>{
+    const type=response.headers.get("content-type")?.split(";")[0].trim().toLowerCase()??"";
+    const length=Number(response.headers.get("content-length")??0);
+    if(response.status!==200||!imageTypes[type]||length>3*1024*1024){await response.body?.cancel();return null;}
+    const bytes=new Uint8Array(await response.arrayBuffer());
+    return bytes.length<=3*1024*1024?{ext:imageTypes[type],bytes}:null;
+  });
+  return page.html;
+}
+async function readPublic<T>(input:string,agent:string,accept:string,read:(response:Awaited<ReturnType<typeof fetch>>)=>Promise<T>) {
   const signal=AbortSignal.timeout(limits.timeout);
   let candidate=input;
   for(let redirects=0;redirects<=limits.redirects;redirects++){
@@ -82,7 +97,7 @@ export async function readPublicPage(input:string,agent:string) {
       else callback(null,ip.address,ip.family);
     }}});
     try{
-      const response=await fetch(url,{dispatcher,signal,redirect:"manual",headers:{Accept:"text/html,application/xhtml+xml","User-Agent":agent}});
+      const response=await fetch(url,{dispatcher,signal,redirect:"manual",headers:{Accept:accept,"User-Agent":agent}});
       if([301,302,303,307,308].includes(response.status)){
         const location=response.headers.get("location");
         await response.body?.cancel();
@@ -90,7 +105,7 @@ export async function readPublicPage(input:string,agent:string) {
         candidate=new URL(location,url).href;
         continue;
       }
-      return {url:url.href,status:response.status,html:await readBody(response)};
+      return {url:url.href,status:response.status,html:await read(response)};
     }finally{await dispatcher.destroy();}
   }
   throw new Error("redirect");
