@@ -6,12 +6,12 @@ import { loadSiteKit } from "@/lib/site-kit";
 import { kitFolder, kitTexts } from "@/lib/kit-files";
 import { zip } from "@/lib/zip";
 
-const kinds = new Set(["Google Maps", "Cadastro na Receita", "Leitura do site", "Perfil do Instagram", "Identidade visual"]);
+const kinds = new Set(["Google Maps", "Conteúdo do site", "Cadastro na Receita", "Leitura do site", "Perfil do Instagram", "Identidade visual"]);
 /** Prévia → "Baixar pasta do site": prompt final (como está na tela), logo, cores, fotos escolhidas e um guia. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const form = await request.formData().catch(() => null);
-  const input = z.object({ prompt: z.string().trim().min(1).max(4000), refs: z.string().max(600) })
+  const input = z.object({ prompt: z.string().trim().min(1).max(9000), refs: z.string().max(600) })
     .safeParse({ prompt: form?.get("prompt"), refs: form?.get("refs") ?? "" });
   if (!z.uuid().safeParse(id).success || !input.success) return new Response("Pedido inválido.", { status: 400 });
   const lead = await loadLead(id); // só a organização do usuário enxerga a empresa

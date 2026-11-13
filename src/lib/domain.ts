@@ -123,9 +123,14 @@ export function whatsappLink(contact: Contact | undefined, content: string) {
 export const readingErrors:Record<string,string>={no_domain:"sem site e sem pesquisa na web ligada",reader_failed:"erro inesperado durante a leitura",lease_exhausted:"o robô parou 3 vezes no meio da leitura",blocked:"empresa marcada como não contatar"};
 /** Entidades HTML que sobram em títulos de site (ex.: &#8211;). */
 export function decodeEntities(text: string) {
-  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", ndash: "–", mdash: "—" };
-  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, code: string) => code[0] === "#"
-    ? String.fromCodePoint(Number(code[1].toLowerCase() === "x" ? "0" + code.slice(1) : code.slice(1)) || 32) : named[code.toLowerCase()] ?? all);
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»", ordm: "º", ordf: "ª", copy: "©", reg: "®", deg: "°" };
+  // acentos do português em sites antigos: &atilde; &ccedil; &Eacute;... viram letra + acento combinado
+  const marks: Record<string, string> = { acute: "́", grave: "̀", circ: "̂", tilde: "̃", uml: "̈", cedil: "̧" };
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, code: string) => {
+    if (code[0] === "#") return String.fromCodePoint(Number(code[1].toLowerCase() === "x" ? "0" + code.slice(1) : code.slice(1)) || 32);
+    const accent = code.match(/^([a-z])(acute|grave|circ|tilde|uml|cedil)$/i);
+    return accent ? (accent[1] + marks[accent[2]]).normalize("NFC") : named[code] ?? named[code.toLowerCase()] ?? all;
+  });
 }
 /** Link de ação de um canal: abrir conversa, ligar, escrever, abrir perfil. */
 export function contactHref(kind: Contact["kind"], normalized: string, value: string) {

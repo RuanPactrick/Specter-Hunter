@@ -1,15 +1,15 @@
 // Leitura automática do site do lead, portada do prospeccao-kit-aluno (lib/site.mjs, marketing.mjs, score.mjs).
 // Tudo sai do HTML público por regex. O resultado vira evidência e contato PENDENTES: quem confirma é a revisão humana.
-import { contactValue, phone, publicUrl } from "./domain";
+import { contactValue, decodeEntities, phone, publicUrl } from "./domain";
 import { pageTitle, readPublicPage } from "./reader";
 
 const agent = "SpecterHunter/0.1 (leitura de contato público do site)";
-const internalPages = ["contato", "fale-conosco", "sobre", "quem-somos", "institucional"];
+const internalPages = ["contato", "fale-conosco", "sobre", "quem-somos", "institucional", "servicos", "serviços", "especialidades", "tratamentos"];
 const junkEmail = /(sentry|wixpress|example|seuemail|email@|\.png|\.jpg|\.jpeg|\.gif|\.webp|\.svg|@2x|@3x)/i;
 
 export type Marketing = { pixel_meta: boolean; pixel_google: boolean; mobile: boolean; whatsapp_button: boolean; copyright: number | null; outdated: boolean };
 export type Found = { emails: string[]; phones: string[]; whatsapp: string | null; instagram: string | null; facebook: string | null; linkedin: string | null; cnpj: string | null };
-export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing; identity?: Identity } | { ok: false; error: string; url?: string };
+export type SiteRead = { ok: true; url: string; status: number; title: string | null; found: Found; marketing: Marketing; identity?: Identity; content?: SiteContent } | { ok: false; error: string; url?: string };
 export type Suggestion = { points: number; maximum: number; signals: Record<string, boolean>; opportunity: "alta" | "media" | "baixa" | null; rationale: string };
 type ContactRow = { kind: "email" | "phone" | "whatsapp" | "instagram"; value: string; normalized: string };
 type EvidenceRow = { kind: string; observed: string; url: string | null; excerpt: string | null };
@@ -83,6 +83,37 @@ export function siteLogo(html: string, base: string) {
   return abs(touch && attr(touch, "href")) ?? abs(icon && attr(icon, "href"));
 }
 
+export type SiteContent = { description: string | null; headings: string[]; items: string[]; texts: string[]; images: { src: string; alt: string }[]; hours: string | null };
+const plain = (html: string) => decodeEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+/** O que dá para reaproveitar num site novo: títulos, serviços em lista, textos, fotos e horário (sem menu, rodapé e formulários). */
+export function siteContent(pages: { html: string; url: string }[]): SiteContent {
+  const headings = new Set<string>(), items = new Set<string>(), texts = new Set<string>(), images = new Map<string, string>();
+  let description: string | null = null, hours: string | null = null;
+  for (const { html, url } of pages) {
+    description ??= plain(html.match(/<meta[^>]+(?:name|property)=["'](?:og:)?description["'][^>]+content=["']([^"']{20,300})/i)?.[1] ?? "") || null;
+    const body = html.replace(/<(script|style|noscript|svg|nav|footer|form|iframe)\b[\s\S]*?<\/\1>/gi, " ");
+    for (const m of body.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gi)) { const t = plain(m[1]); if (t.length >= 3 && t.length <= 120) headings.add(t); }
+    for (const m of body.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) { const t = plain(m[1]); if (t.length >= 3 && t.length <= 90 && !/@|\d{4}-?\d{4}|cookie/i.test(t)) items.add(t); }
+    for (const m of body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)) { const t = plain(m[1]); if (t.length >= 60 && t.length <= 400 && !/cookie|copyright|©|todos os direitos/i.test(t)) texts.add(t); }
+    for (const m of body.matchAll(/<img\b[^>]*>/gi)) {
+      const attr = (n: string) => m[0].match(new RegExp("\\s" + n + "\\s*=\\s*[\"']([^\"']+)[\"']", "i"))?.[1];
+      const raw = attr("data-src") ?? attr("src");
+      if (!raw || raw.startsWith("data:") || /logo|icon|sprite|pixel|avatar|\.svg|\.gif/i.test(raw)) continue;
+      try { const src = new URL(raw, url).href; if (/^https?:/.test(src) && src.length <= 200) images.set(src, plain(attr("alt") ?? "")); } catch { /* src quebrado */ }
+    }
+    hours ??= plain(body).match(/(?:seg(?:unda)?|ter[cç]a)[^.;|]{0,40}?\d{1,2}\s*(?:h|:\d{2})[^.;|]{0,50}/i)?.[0].trim() ?? null;
+  }
+  return { description, headings: [...headings].slice(0, 12), items: [...items].slice(0, 20), texts: [...texts].slice(0, 6),
+    images: [...images].slice(0, 6).map(([src, alt]) => ({ src, alt })), hours };
+}
+/** Conteúdo em texto para guardar como evidência (até 2000 caracteres; os textos longos vão no fim e são cortados primeiro). */
+export function contentText(c: SiteContent) {
+  const lines = [c.description && "Descrição: " + c.description, c.headings.length && "Títulos: " + c.headings.join(" | "), c.items.length && "Itens e serviços: " + c.items.join("; "),
+    c.hours && "Horário: " + c.hours, c.images.length && "Imagens: " + c.images.map(i => i.src + (i.alt ? " (" + i.alt + ")" : "")).join("; "),
+    c.texts.length && "Textos: " + c.texts.map(t => "“" + t + "”").join(" ")].filter(Boolean) as string[];
+  return lines.join("\n").slice(0, 2000);
+}
+
 function merge(a: Found, b: Found): Found {
   const uniq = (x: string[], y: string[]) => [...new Set([...x, ...y])].slice(0, 5);
   return { emails: uniq(a.emails, b.emails), phones: uniq(a.phones, b.phones), whatsapp: a.whatsapp ?? b.whatsapp, instagram: a.instagram ?? b.instagram,
@@ -114,10 +145,11 @@ export async function readSite(domain: string, read = readPublicPage): Promise<S
       if (page.status >= 400) { error = "HTTP " + page.status; blockedAt = page.url; continue; }
       if (!page.html) { error = "resposta sem HTML"; continue; }
       let found = extract(page.html);
-      // páginas internas (contato, sobre) em paralelo
-      for (const inner of await Promise.all(internalLinks(page.html, page.url).map(link => read(link, agent).catch(() => null))))
-        if (inner?.html && inner.status < 400) found = merge(found, extract(inner.html));
-      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html), identity: identity(page.html, page.url) };
+      const pages = [{ html: page.html, url: page.url }];
+      // páginas internas (contato, sobre, serviços) em paralelo
+      for (const inner of await Promise.all(internalLinks(page.html, page.url, 3).map(link => read(link, agent).catch(() => null))))
+        if (inner?.html && inner.status < 400) { found = merge(found, extract(inner.html)); pages.push({ html: inner.html, url: inner.url }); }
+      return { ok: true, url: page.url, status: page.status, title: pageTitle(page.html), found, marketing: marketing(page.html), identity: identity(page.html, page.url), content: siteContent(pages) };
     } catch (cause) { error = cause instanceof Error ? cause.message : "falha"; }
   }
   return { ok: false, error, ...(blockedAt && error.startsWith("HTTP") ? { url: blockedAt } : {}) };
@@ -189,6 +221,8 @@ export function enrichmentPayload(site: SiteRead, extra: Extra = {}) {
   evidence.push({ kind: "Sinais de marketing", observed: "Página inicial: " + explainMarketing(site.marketing) + ". Oportunidade sugerida: " + level + ".", url: site.url, excerpt: null });
   const id = site.identity;
   if (id?.logo) evidence.push({ kind: "Logo", observed: "Logo encontrado no site.", url: id.logo, excerpt: null });
+  const content = site.content && contentText(site.content);
+  if (content) evidence.push({ kind: "Conteúdo do site", observed: content, url: site.url, excerpt: null });
   if (id && (id.colors.length || id.fonts.length)) evidence.push({ kind: "Identidade visual", observed: [id.colors.length && "Cores: " + id.colors.join(", ") + ".", id.fonts.length && "Fontes: " + id.fonts.join(", ") + "."].filter(Boolean).join(" "), url: site.url, excerpt: null });
   return { evidence, contacts, suggestion: suggest(site, extra), site_status: "owned" as const, site_url: site.url };
 }

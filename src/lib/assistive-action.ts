@@ -42,14 +42,14 @@ export async function answerClient(id:string,input:{content:string;instruction:s
 async function refineWithAi(id:string,mode:"refine"|"refinePrompt"|"objection",input:{content:string;instruction:string;purpose:string}):Promise<RefineResult> {
   const config=aiConfig();
   if(!config)return {error:"IA desligada no servidor. Cadastre GEMINI_API_KEY e ENABLE_ASSISTIVE_AI=true."};
-  const parsed=z.object({content:z.string().trim().max(3400),instruction:z.string().trim().min(2).max(1500),purpose:z.string().trim().max(80)}).safeParse(input);
+  const parsed=z.object({content:z.string().trim().max(9000),instruction:z.string().trim().min(2).max(1500),purpose:z.string().trim().max(80)}).safeParse(input);
   if(!parsed.success)return {error:"Escreva o texto e o que você quer ajustar."};
   const [{db,org},lead,records]=await Promise.all([context(),loadLead(id),loadEvidence(id)]);
   if(lead.stage==="blocked")return {error:"Empresa marcada como não contatar."};
   if(mode!=="objection"&&!parsed.data.content)return {error:"Escreva o texto e o que você quer ajustar."};
   const sent=mode==="objection"?(await db.from("outreach_events").select("content").eq("organization_id",org.id).eq("lead_id",id).eq("kind","sent").order("created_at",{ascending:false}).limit(1)).data?.[0]?.content:undefined;
   // fatos confirmados primeiro; achados do robô ainda não conferidos vão marcados, sem e-mails, telefones e links
-  const found=records.filter(e=>!evidenceExpired(e)&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.review!=="inconclusive"&&e.review!=="conflict"&&(evidenceUsable(e)||e.provider!=="manual"))
+  const found=records.filter(e=>!evidenceExpired(e)&&e.kind!=="Cadastro"&&e.kind!=="Contatos no site"&&e.kind!=="Conteúdo do site"&&e.review!=="inconclusive"&&e.review!=="conflict"&&(evidenceUsable(e)||e.provider!=="manual"))
     .filter((e,i,all)=>all.findIndex(x=>x.kind===e.kind)===i);
   const ordered=[...found.filter(evidenceUsable),...found.filter(e=>!evidenceUsable(e))].slice(0,8);
   const observations=ordered.map((e,i)=>({id:String(i+1),observed:(evidenceUsable(e)?"":"(não conferido) ")+e.kind+": "+minimizeEvidence(decodeEntities(e.observed))}));

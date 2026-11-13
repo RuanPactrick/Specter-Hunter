@@ -24,7 +24,7 @@ test("o texto salvo volta a ser lido e entra no prompt do site", () => {
   expect(feed.photos).toEqual([{ n: 1, use: "topo", authority: 9, person: true, description: "Doutora de jaleco, fundo neutro" }, { n: 2, use: "sobre", authority: 7, person: true, description: "Doutora sorrindo no consultório" }]);
   const prompt = sitePrompt({ name: "X", sector: "Odontologia", place: "Recife", colors: feed.palette, fonts: [], logo: false, instagram: true, facts: [], photos: feed.photos, feedStyle: feed.style });
   expect(prompt).toContain("Fotos reais anexadas, na ordem: 1) topo: Doutora de jaleco, fundo neutro; 2) sobre:");
-  expect(prompt).toContain("Estilo visual que a empresa já usa no Instagram: Clean e claro.");
+  expect(prompt).toContain("Estilo que a empresa já usa no Instagram (mantenha a coerência): Clean e claro.");
   expect(prompt).not.toContain("fotos reais do Instagram da empresa no lugar");
 });
 

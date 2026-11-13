@@ -1,5 +1,5 @@
 import { describe,expect,it,vi } from "vitest";
-import { enrichmentPayload,extract,internalLinks,marketing,readSite } from "../src/lib/enrichment";
+import { contentText,enrichmentPayload,extract,internalLinks,marketing,readSite,siteContent } from "../src/lib/enrichment";
 const home=`<html><head><title>Clínica Sorriso</title><meta name="viewport" content="width=device-width"></head><body>
 <a href="mailto:contato@sorriso.com.br">e-mail</a> <a href="https://wa.me/5598991234567">WhatsApp</a>
 <a href="https://www.instagram.com/clinicasorriso">ig</a> <a href="/contato">Contato</a> <a href="https://outro.com/contato">fora</a>
@@ -26,7 +26,7 @@ describe("Leitura automática do site",()=>{
     const site=await readSite("sorriso.com.br",read);
     const payload=enrichmentPayload(site);
     expect(read.mock.calls.map(c=>c[0])).toEqual(["https://sorriso.com.br/","https://sorriso.com.br/contato"]);
-    expect(payload.evidence.map(e=>e.kind)).toEqual(["Leitura do site","Contatos no site","Sinais de marketing"]);
+    expect(payload.evidence.map(e=>e.kind)).toEqual(["Leitura do site","Contatos no site","Sinais de marketing","Conteúdo do site"]);
     expect(payload.contacts.map(c=>c.kind+":"+c.normalized)).toEqual(expect.arrayContaining(["email:atendimento@sorriso.com.br","whatsapp:+5598991234567","instagram:clinicasorriso"]));
     expect(payload.suggestion).toMatchObject({points:80,maximum:85,opportunity:"alta"});
   });
@@ -63,4 +63,15 @@ describe("Logo",()=>{
     expect(siteLogo(`<img src="data:image/png;base64,AAA" alt="logo"><link rel="shortcut icon" href="ico.png">`,"https://c.com.br/p/")).toBe("https://c.com.br/p/ico.png");
     expect(siteLogo(`<p>sem</p>`,"https://c.com.br/")).toBeNull();
   });
+});
+it("tira do site o conteúdo que dá para reaproveitar, sem menu, rodapé nem logo",()=>{
+  const home=`<head><meta name="description" content="Clínica odontológica no Cohama com implantes e lentes."></head><body><nav><ul><li>Início</li><li>Contato</li></ul></nav>
+    <h1>Seu sorriso em boas m&atilde;os</h1><img src="/img/logo.png"><img data-src="/fotos/consultorio.jpg" alt="Consultório"><p>Atendemos famílias em São Luís há mais de dez anos, com tecnologia e cuidado em cada etapa do tratamento.</p>
+    <footer><p>© 2024 Clínica Sorriso. Todos os direitos reservados e mais texto para passar de sessenta.</p></footer></body>`;
+  const sobre=`<h2>Especialidades</h2><ul><li>Implantes dentários</li><li>Lentes de contato dental</li><li>(98) 99123-4567</li></ul><p>Segunda a sexta, das 8h às 18h.</p>`;
+  const c=siteContent([{html:home,url:"https://sorriso.com.br/"},{html:sobre,url:"https://sorriso.com.br/sobre"}]);
+  expect(c).toEqual({description:"Clínica odontológica no Cohama com implantes e lentes.",headings:["Seu sorriso em boas mãos","Especialidades"],items:["Implantes dentários","Lentes de contato dental"],
+    texts:["Atendemos famílias em São Luís há mais de dez anos, com tecnologia e cuidado em cada etapa do tratamento."],images:[{src:"https://sorriso.com.br/fotos/consultorio.jpg",alt:"Consultório"}],hours:"Segunda a sexta, das 8h às 18h"});
+  expect(contentText(c)).toBe("Descrição: Clínica odontológica no Cohama com implantes e lentes.\nTítulos: Seu sorriso em boas mãos | Especialidades\nItens e serviços: Implantes dentários; Lentes de contato dental\nHorário: Segunda a sexta, das 8h às 18h\nImagens: https://sorriso.com.br/fotos/consultorio.jpg (Consultório)\nTextos: “Atendemos famílias em São Luís há mais de dez anos, com tecnologia e cuidado em cada etapa do tratamento.”");
+  expect(contentText({description:null,headings:[],items:[],texts:["x".repeat(400),"y".repeat(400),"z".repeat(400),"w".repeat(400),"v".repeat(400),"u".repeat(400)],images:[],hours:null}).length).toBe(2000);
 });
