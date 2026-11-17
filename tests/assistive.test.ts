@@ -63,6 +63,8 @@ it("mensagens de abordagem levam o treino de especialista e a objeção da empre
   await draftWithGemini("brief",base,config,provider);
   expect(sent[0].system).toContain("especialista em prospecção");
   expect(sent[0].system).toContain("Leitura: <tipo>");
+  expect(sent[0].system).toContain("\"Chance: <alta, média, baixa ou nenhuma>");
+  expect(sent[0].system).toContain("alta (60 a 80%)");
   expect(sent[0].system).toContain("não insista");
   expect(sent[0].system).toContain("\"Consultiva: <resposta");
   expect((sent[0].input as {current?:string}).current).toBe("Olá! Sou Ana e vi a nota 4,9.");
