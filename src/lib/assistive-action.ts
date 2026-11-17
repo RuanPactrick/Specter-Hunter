@@ -1,7 +1,9 @@
 "use server";
 import { z } from "zod";
 import { context } from "./auth";
-import { loadEvidence,loadLead } from "./data";
+import { revalidatePath } from "next/cache";
+import { leadPath,loadEvidence,loadLead } from "./data";
+import { chanceOf } from "./chance";
 import { decodeEntities,evidenceExpired,evidenceUsable,formatDate } from "./domain";
 import { salesAngle } from "./insights";
 import { noAiLook } from "./site-prompt";
@@ -33,7 +35,7 @@ export async function generateAssistance(id:string,provider:"gemini"|"openai",_s
     return {error:error instanceof Error&&error.message==="provider_429"?"O provedor atingiu o limite de uso. Tente mais tarde.":"O provedor não retornou um rascunho válido. Você pode tentar novamente ou usar os modelos locais."};
   }
 }
-type RefineResult={text?:string;tips?:string[];error?:string};
+type RefineResult={text?:string;tips?:string[];error?:string;saved?:boolean};
 /** Ajuste da mensagem no passo 2 da Abordagem: o vendedor pede, a IA reescreve, e o vendedor pode pedir de novo. */
 export async function refineMessage(id:string,input:{content:string;instruction:string;purpose:string}):Promise<RefineResult> { return refineWithAi(id,"refine",input); }
 /** Mesmo ajuste em conversa, para o prompt do site na aba Prévia. */
@@ -63,7 +65,16 @@ async function refineWithAi(id:string,mode:"refine"|"refinePrompt"|"objection",i
     const result=await generate(mode,{company:assistiveCompany(lead),observations,angle:minimizeEvidence(angle),...(mode==="objection"
       ?{reply:minimizeEvidence(parsed.data.instruction),current:sent??undefined,sender:minimizeEvidence(org.message_name)}
       :{current:parsed.data.content,instruction:parsed.data.instruction,purpose:parsed.data.purpose,...(mode==="refine"?{sender:minimizeEvidence(org.message_name)}:{})})},config);
-    return result.draft.trim()?{text:mode==="refinePrompt"?noAiLook(result.draft):result.draft.trim(),tips:result.suggestions.map(s=>s.text).slice(0,mode==="objection"?5:2)}:{error:"A IA não devolveu uma nova versão. Tente outro pedido."};
+    if(!result.draft.trim())return {error:"A IA não devolveu uma nova versão. Tente outro pedido."};
+    const tips=result.suggestions.map(s=>s.text).slice(0,mode==="objection"?5:2);
+    if(mode==="objection"){
+      // a resposta do cliente e a chance lida ficam no histórico; o Pipeline usa a mais recente
+      const chance=tips.find(t=>chanceOf(t))?.replace(/^Chance:/,"Chance de fechar:");
+      const saved=await db.rpc("record_outreach",{p_org:org.id,p_lead:id,p_kind:"reply",p_purpose:"follow",p_channel:"WhatsApp",p_content:(parsed.data.instruction+(chance?"\n\n"+chance:"")).slice(0,3000)});
+      if(!saved.error)revalidatePath(leadPath(id,"abordagem"));
+      return {text:result.draft.trim(),tips,saved:!saved.error};
+    }
+    return {text:mode==="refinePrompt"?noAiLook(result.draft):result.draft.trim(),tips};
   }catch(error){
     return {error:error instanceof Error&&error.message==="provider_429"?"O limite gratuito da IA foi atingido. Tente em alguns minutos.":"A IA não conseguiu ajustar agora. Tente de novo."};
   }

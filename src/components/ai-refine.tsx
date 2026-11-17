@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Sparkles, Undo2 } from "lucide-react";
 import { Field, Notice } from "./ui";
-export type Refine=(input:{content:string;instruction:string;purpose:string})=>Promise<{text?:string;tips?:string[];error?:string}>;
+export type Refine=(input:{content:string;instruction:string;purpose:string})=>Promise<{text?:string;tips?:string[];error?:string;saved?:boolean}>;
 /** Ajuste em conversa com a IA: cada pedido reescreve o texto do campo, e dá para desfazer. */
 export function AiRefine({refine,name,content,purpose,onText,quick,placeholder,noun}:{refine:Refine;name:string;content:string;purpose:string;onText:(text:string)=>void;quick:string[];placeholder:string;noun:string}) {
   const [allowed,setAllowed]=useState(false);
@@ -41,19 +41,20 @@ export function ClientReply({answer,name,onText}:{answer:Refine;name:string;onTe
   const [tips,setTips]=useState<string[]>([]);
   const [best,setBest]=useState("");
   const [used,setUsed]=useState("");
+  const [saved,setSaved]=useState<boolean|undefined>();
   const options=tips.flatMap(t=>{const m=t.match(/^(Curta|Consultiva|Direta):\s*([\s\S]+)/);return m?[{label:m[1],text:m[2].trim()}]:[];});
   function pick(text:string){setUsed(text);onText(text);}
   async function run() {
     setBusy(true);setError("");
-    const result=await answer({content:"",instruction:reply,purpose:"Responder o cliente"}).catch(()=>({error:"A IA não respondeu. Tente de novo."}) as {text?:string;tips?:string[];error?:string});
+    const result=await answer({content:"",instruction:reply,purpose:"Responder o cliente"}).catch(()=>({error:"A IA não respondeu. Tente de novo."}) as {text?:string;tips?:string[];error?:string;saved?:boolean});
     setBusy(false);
     if(result.error||!result.text){setError(result.error??"Sem resposta.");return;}
-    setTips(result.tips??[]);setBest(result.text);pick(result.text);
+    setTips(result.tips??[]);setBest(result.text);setSaved(result.saved);pick(result.text);
   }
   return <details className="ai-refine client-reply">
     <summary><strong>O cliente respondeu?</strong> <span className="meta">Cole a resposta e o {name} sugere o que responder.</span></summary>
     <Field label="O que a empresa respondeu" hint="Ex.: quanto custa? / já temos site / quem cuida disso é meu sócio"><textarea value={reply} onChange={e=>setReply(e.target.value)} maxLength={650} rows={3}/></Field>
-    {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar a resposta da empresa, a última mensagem enviada e os achados ao {name}.</label>}
+    {!allowed&&<label className="check"><input type="checkbox" onChange={e=>setAllowed(e.target.checked)}/>Autorizo enviar a resposta da empresa, a última mensagem enviada e os achados ao {name}, e salvar a resposta no histórico.</label>}
     <button type="button" className="btn primary small" disabled={!allowed||busy||reply.trim().length<2} onClick={run}>{busy?"Analisando…":"Analisar e sugerir resposta"}</button>
     {error&&<Notice tone="error">{error}</Notice>}
     {tips.length>0&&<div className="client-read">{tips.filter(t=>!options.some(o=>t.endsWith(o.text))).map(t=>{
@@ -61,6 +62,6 @@ export function ClientReply({answer,name,onText}:{answer:Refine;name:string;onTe
       return c?<div key={t} className={"close-chance "+c[1].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")}><p><strong>Chance de fechar: {c[1].toLowerCase()} {c[2]}</strong></p>{c[3].split("|").map(p=><p key={p}>{p.trim()}</p>)}</div>:<p key={t}>{t}</p>;})}
       {options.map(o=><div key={o.label} className={"reply-option"+(used===o.text?" on":"")}><p><strong>{o.label}</strong>{o.text===best&&<span className="meta"> · recomendada</span>}</p><p>{o.text}</p>
         <button type="button" className="btn small" disabled={used===o.text} onClick={()=>pick(o.text)}>{used===o.text?"No campo Mensagem":"Usar esta"}</button></div>)}
-      <p className="meta">A resposta escolhida vai para o campo Mensagem acima. Revise antes de enviar.</p></div>}
+      <p className="meta">A resposta escolhida vai para o campo Mensagem acima. Revise antes de enviar.{saved===true?" A resposta do cliente e a chance ficaram salvas no histórico e no Pipeline.":saved===false?" Não foi possível salvar a resposta no histórico.":""}</p></div>}
   </details>;
 }
